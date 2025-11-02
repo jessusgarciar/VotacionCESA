@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-md-6 col-lg-4">
+    
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        
+        <h2 class="card-title text-center mb-4">VOTACIONES CESA</h2>
+        <br>
+        <h3 class="card-title text-center mb-4">Iniciar Sesión</h3>
+
+        <form method="post" action="{% url 'login' %}">
+
+          {% csrf_token %}
+
+          {% if form.errors %}
+            <div class="alert alert-danger" role="alert">
+              Tu usuario o contraseña son incorrectos.
+            </div>
+          {% endif %}
+
+        <div class="mb-3">
+            <label for="username" class="form-label">Numero de Control</label>
+            <input type="text" class="form-control" id="username" name="username" required>
+        </div>
+
+        <div class="mb-3">
+            <label for="password" class="form-label">Contraseña</label>
+            <input type="password" class="form-control" id="password" name="password" required>
+        </div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary btn-lg">
+              Entrar
+            </button>
+          </div>
+          
+        </form>
+        
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
