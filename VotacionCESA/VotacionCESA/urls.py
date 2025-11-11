@@ -17,18 +17,30 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from django.views.generic import RedirectView
+from django.views.generic import TemplateView
+from votaciones import views as vot_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Redirige la raíz a la página de login (evita el 404 en /)
-    path('', RedirectView.as_view(url='login/', permanent=False)),
+    # Servir homepage en la raíz usando una TemplateView
+    path('', TemplateView.as_view(template_name='home.html'), name='home'),
 
-    # 2. Define la URL de login
+    # Página de resultados
+    path('resultados/', TemplateView.as_view(template_name='resultados.html'), name='resultados'),
+    # Página del explorador de blockchain
+    path('blockchain/', TemplateView.as_view(template_name='blockchain.html'), name='blockchain'),
+
+    # Página de login
     path('login/', auth_views.LoginView.as_view(
-        # 3. Dile qué plantilla HTML usar
-        template_name='registration/login.html' 
+        template_name='registration/login.html'
     ), name='login'),
-    # 4. (Opcional pero recomendado) Añade la URL de logout
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    # Logout (redirige al login una vez cerrado sesión)
+    path('logout/', auth_views.LogoutView.as_view(next_page='/login/'), name='logout'),
+
+    # API endpoints (candidates + vote)
+    path('api/candidates/', vot_views.api_candidates, name='api_candidates'),
+    path('api/vote/', vot_views.api_vote, name='api_vote'),
+    # Elections listing
+    path('api/elections/', vot_views.api_elections, name='api_elections'),
+    path('api/stats/', vot_views.api_stats, name='api_stats'),
 ]

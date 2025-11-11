@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Resultados</h2>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Total de Votos</div>
+        <div id="statTotalVotes" class="h4 mt-1">0</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Votantes Elegibles</div>
+        <div id="statEligibleVoters" class="h4 mt-1">0</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Participación</div>
+        <div id="statParticipation" class="h4 mt-1">0.0%</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Estado</div>
+        <div id="statStatus" class="h4 mt-1 text-success">Activa</div>
+      </div>
+    </div>
+  </div>
+
+    <!-- Pestañas tipo switch (Votar / Resultados / Blockchain) -->
+  <div class="d-flex justify-content-center mb-4">
+    <div class="btn-group" role="group" aria-label="Navegación principal">
+      <a href="{% url 'home' %}" class="btn btn-outline-secondary">Votar</a>
+      <a href="{% url 'resultados' %}" class="btn btn-primary">Resultados</a>
+  <a href="{% url 'blockchain' %}" class="btn btn-outline-secondary">Blockchain</a>
+    </div>
+  </div>
+
+  <div id="resultsGrid" class="row row-cols-1 row-cols-md-3 g-4">
+    <!-- results injected by JS -->
+  </div>
+
+  <script>
+    async function fetchAndRenderResults(containerId, electionId=null){
+      try{
+        const url = new URL('{% url "api_candidates" %}', window.location.origin);
+        if(electionId) url.searchParams.set('election_id', electionId);
+        const res = await fetch(url);
+        const json = await res.json();
+        const candidates = json.candidates || [];
+        const total = candidates.reduce((s,c)=>s+(c.votes_count||0),0) || 0;
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        candidates.forEach(c => {
+          const pct = total? ((c.votes_count/total)*100).toFixed(1):0;
+          const col = document.createElement('div');
+          col.className = 'col';
+          const card = document.createElement('div');
+          card.className = 'card candidate-card h-100 shadow-sm';
+          const image = c.image_url || 'https://picsum.photos/seed/default/800/260';
+          const proposals = (c.manifesto||'').split('\n').slice(0,3).map(x=>`<li>${x}</li>`).join('');
+          card.innerHTML = `\
+            <img src="${image}" class="card-img-top" alt="${c.name}">\
+            <div class="card-body">\
+              <h5 class="card-title">${c.list_name}</h5>\
+              <p class="text-muted mb-2">Presidente: ${c.name}</p>\
+              <p class="small text-muted">Propuestas principales:</p>\
+              <ul class="small">${proposals}</ul>\
+            </div>\
+            <div class="card-footer bg-white border-top-0">\
+              <div class="d-flex justify-content-between align-items-center mb-2">\
+                <small class="text-muted">Votos</small>\
+                <small class="text-muted votes-count">${c.votes_count} (${pct}%)</small>\
+              </div>\
+              <div class="progress" style="height:10px">\
+                <div class="progress-bar" role="progressbar" style="width:${pct}%" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"></div>\
+              </div>\
+              <div class="mt-3 d-flex justify-content-end">\
+                <a href="#" class="btn btn-sm btn-outline-secondary details-btn" data-bs-toggle="modal" data-candidate-id="${c.id}" data-name="${c.name}" data-list="${c.list_name}" data-image="${image}" data-proposals="${(c.manifesto||'').replace(/\n/g,';')}" data-members="">Detalles</a>\
+              </div>\
+            </div>`;
+          col.appendChild(card);
+          // attach members data as JSON to the button dataset so modal can render them
+          try{
+            const btn = card.querySelector('.details-btn');
+            if(btn){ btn.dataset.members = JSON.stringify(c.members || []); }
+          }catch(e){ console.warn('could not attach members', e); }
+          container.appendChild(col);
+        });
+      }catch(err){
+        console.error('Error rendering results', err);
+      }
+    }
+
+    async function initResults(){
+      try{
+        const resE = await fetch('{% url "api_elections" %}');
+        const jsonE = await resE.json();
+        const elections = jsonE.elections || [];
+        const active = elections.find(e=>e.is_active) || elections[0] || null;
+        const electionId = active? active.id : null;
+        fetchAndRenderResults('resultsGrid', electionId);
+      }catch(e){
+        console.warn('Could not load elections', e);
+        fetchAndRenderResults('resultsGrid');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      initResults();
+      // also load stats for the active election
+      (async function loadStats(){
+        try{
+          const resE = await fetch('{% url "api_elections" %}');
+          const jsonE = await resE.json();
+          const elections = jsonE.elections || [];
+          const active = elections.find(e=>e.is_active) || elections[0] || null;
+          const electionId = active? active.id : null;
+          const url = new URL('{% url "api_stats" %}', window.location.origin);
+          if(electionId) url.searchParams.set('election_id', electionId);
+          const resS = await fetch(url);
+          const stats = await resS.json();
+          const totalEl = document.getElementById('statTotalVotes');
+          const eligibleEl = document.getElementById('statEligibleVoters');
+          const partEl = document.getElementById('statParticipation');
+          const statusEl = document.getElementById('statStatus');
+          if(totalEl) totalEl.textContent = stats.total_votes ?? totalEl.textContent;
+          if(eligibleEl) eligibleEl.textContent = stats.eligible_voters ?? eligibleEl.textContent;
+          if(partEl) partEl.textContent = (stats.participation != null ? stats.participation + '%' : partEl.textContent);
+          if(statusEl) statusEl.textContent = (active && active.is_active) ? 'Activa' : 'Cerrada';
+        }catch(e){ console.warn('Could not load stats', e); }
+      })();
+    });
+  </script>
+</div>
+{% endblock %}

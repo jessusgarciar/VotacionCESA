@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Explorador de Blockchain</h2>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Total de Votos</div>
+        <div class="h4 mt-1">0</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Votantes Elegibles</div>
+        <div class="h4 mt-1">0</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Participación</div>
+        <div class="h4 mt-1">0.0%</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Estado</div>
+        <div class="h4 mt-1 text-success">Activa</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pestañas tipo switch (Votar / Resultados / Blockchain) - Blockchain activo -->
+  <div class="d-flex justify-content-center mb-4">
+    <div class="btn-group" role="group" aria-label="Navegación principal">
+      <a href="{% url 'home' %}" class="btn btn-outline-secondary">Votar</a>
+      <a href="{% url 'resultados' %}" class="btn btn-outline-secondary">Resultados</a>
+      <a href="{% url 'blockchain' %}" class="btn btn-primary">Blockchain</a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+          <h5 class="card-title mb-1"><i class="bi bi-hdd-stack"></i> Explorador de Blockchain</h5>
+          <p class="small text-muted mb-0">Visualiza las transacciones (tokens) registradas para las votaciones.</p>
+        </div>
+        <div>
+          <span class="badge bg-light text-dark">0 Transacciones</span>
+        </div>
+      </div>
+
+      <!-- Estado vacío / tabla de transacciones -->
+      <div class="text-center py-5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="mb-3 text-muted" style="opacity:.7">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v6a4 4 0 004 4h10"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 7v6a4 4 0 01-4 4H7"/>
+        </svg>
+        <h5 class="text-muted">No hay transacciones registradas aún</h5>
+        <p class="small text-muted">Cuando haya votaciones activas y tokens emitidos, aquí aparecerán las transacciones verificadas por la red Algorand.</p>
+      </div>
+
+      <div class="mt-4 p-3 rounded" style="background:#f1f7ff;">
+        <small class="text-muted">🔒 Todas las transacciones son inmutables y están verificadas por la red Algorand</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ejemplo de tabla (oculto ya que no hay transacciones) -->
+  <!--
+  <div class="card mt-4">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>Hash</th>
+              <th>Tipo</th>
+              <th>Votación</th>
+              <th>Fecha</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>3b9f...a7c1</code></td>
+              <td>Transfer</td>
+              <td>Elección Estudiantil 2025</td>
+              <td>2025-11-06 12:34</td>
+              <td><span class="badge bg-success">Verificado</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  -->
+
+</div>
+{% endblock %}

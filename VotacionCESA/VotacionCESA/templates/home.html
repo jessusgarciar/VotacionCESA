@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Votación</h2>
+  </div>
+
+  <!-- Top statistic cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Total de Votos</div>
+        <div id="statTotalVotes" class="h4 mt-1">0</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Votantes Elegibles</div>
+        <div id="statEligibleVoters" class="h4 mt-1">0</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Participación</div>
+        <div id="statParticipation" class="h4 mt-1">0.0%</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card stats-card p-3">
+        <div class="small text-muted">Estado</div>
+        <div id="statStatus" class="h4 mt-1 text-success">Activa</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="d-flex justify-content-center mb-4">
+    <div class="btn-group" role="group" aria-label="Navegación principal">
+      <a href="{% url 'home' %}" class="btn btn-primary">Votar</a>
+      <a href="{% url 'resultados' %}" class="btn btn-outline-secondary">Resultados</a>
+      <a href="#" class="btn btn-outline-secondary">Blockchain</a>
+    </div>
+  </div>
+
+  <!-- Candidates grid (rendered dynamically) -->
+  <div id="candidatesGrid" class="row row-cols-1 row-cols-md-3 g-4">
+    <!-- cards injected by JS -->
+  </div>
+
+  <script>
+    async function fetchAndRenderCandidates(containerId, electionId=null){
+      try{
+        const url = new URL('{% url "api_candidates" %}', window.location.origin);
+        if(electionId) url.searchParams.set('election_id', electionId);
+        const res = await fetch(url);
+        const json = await res.json();
+        const candidates = json.candidates || [];
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        candidates.forEach(c => {
+          const col = document.createElement('div');
+          col.className = 'col';
+          const card = document.createElement('div');
+          card.className = 'card candidate-card h-100 shadow-sm';
+          const image = c.image_url || 'https://picsum.photos/seed/default/800/260';
+          const manifesto = (c.manifesto || '').replace(/\n/g, ' ');
+            card.innerHTML = `\
+              <img src="${image}" class="card-img-top" alt="${c.name}">\
+              <div class="card-body">\
+                <h5 class="card-title">${c.name}</h5>\
+                <p class="card-text text-muted mb-2"><strong>Propuesta:</strong> ${manifesto.substring(0,140)}</p>\
+                <a href="#" class="btn vote-btn w-100" data-bs-toggle="modal" data-candidate-id="${c.id}" data-name="${c.name}" data-list="${c.list_name}" data-image="${image}" data-proposals="${(manifesto).replace(/"/g,'\"')}" data-members="">Ver detalles y votar</a>\
+              </div>`;
+          col.appendChild(card);
+            // attach members JSON to vote button for modal rendering
+            try{
+              const btn = card.querySelector('.vote-btn');
+              if(btn){ btn.dataset.members = JSON.stringify(c.members || []); }
+            }catch(e){ console.warn('could not attach members to vote button', e); }
+          container.appendChild(col);
+        });
+      }catch(err){
+        console.error('Error loading candidates', err);
+      }
+    }
+
+    async function initCandidates(){
+      try{
+        // fetch elections and pick active one
+        const resE = await fetch('{% url "api_elections" %}');
+        const jsonE = await resE.json();
+        const elections = jsonE.elections || [];
+        const active = elections.find(e=>e.is_active) || elections[0] || null;
+        const electionId = active? active.id : null;
+        fetchAndRenderCandidates('candidatesGrid', electionId);
+      }catch(e){
+        console.warn('Could not load elections', e);
+        fetchAndRenderCandidates('candidatesGrid');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      initCandidates();
+      // also load stats for the active election
+      (async function loadStats(){
+        try{
+          const resE = await fetch('{% url "api_elections" %}');
+          const jsonE = await resE.json();
+          const elections = jsonE.elections || [];
+          const active = elections.find(e=>e.is_active) || elections[0] || null;
+          const electionId = active? active.id : null;
+          const url = new URL('{% url "api_stats" %}', window.location.origin);
+          if(electionId) url.searchParams.set('election_id', electionId);
+          const resS = await fetch(url);
+          const stats = await resS.json();
+          const totalEl = document.getElementById('statTotalVotes');
+          const eligibleEl = document.getElementById('statEligibleVoters');
+          const partEl = document.getElementById('statParticipation');
+          const statusEl = document.getElementById('statStatus');
+          if(totalEl) totalEl.textContent = stats.total_votes ?? totalEl.textContent;
+          if(eligibleEl) eligibleEl.textContent = stats.eligible_voters ?? eligibleEl.textContent;
+          if(partEl) partEl.textContent = (stats.participation != null ? stats.participation + '%' : partEl.textContent);
+          if(statusEl) statusEl.textContent = (active && active.is_active) ? 'Activa' : 'Cerrada';
+        }catch(e){ console.warn('Could not load stats', e); }
+      })();
+    });
+  </script>
+
+{% endblock %}

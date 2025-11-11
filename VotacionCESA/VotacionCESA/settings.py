@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'votaciones',
 ]
 
 MIDDLEWARE = [
@@ -130,3 +131,20 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 LOGIN_REDIRECT_URL = '/'
+
+# Algorand (optional) - provide values via environment variables in production
+ALGOD_ADDRESS = os.environ.get('ALGOD_ADDRESS', '')
+ALGOD_TOKEN = os.environ.get('ALGOD_TOKEN', '')
+ALGOD_HEADERS = None  # set if your provider requires headers
+
+# Sender credentials for on-chain txs (use env vars or a secure secret store)
+# ALGORAND_SENDER_MNEMONIC is the easiest for local testing; in production use a key vault
+ALGORAND_SENDER_MNEMONIC = os.environ.get('ALGORAND_SENDER_MNEMONIC', '')
+
+# Email settings placeholder (configure for real email delivery when needed)
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '25') or 25)
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = bool(os.environ.get('EMAIL_USE_TLS', ''))
