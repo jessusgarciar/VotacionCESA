@@ -1,4 +1,7 @@
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponse
+import logging
+
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
 from django.shortcuts import get_object_or_404
@@ -47,14 +50,51 @@ def api_candidates(request):
     return JsonResponse({'candidates': data})
 
 
+def csrf_failure(request, reason=""):
+    """Debug helper: show CSRF tokens/cookie when DEBUG=True.
+
+    This view is intended for local debugging only. It reveals the csrftoken cookie,
+    any csrfmiddlewaretoken submitted via POST, and X-CSRFToken header values so you
+    can diagnose mismatches. It is only enabled when Django DEBUG is True.
+    """
+    from django.conf import settings
+    if not getattr(settings, 'DEBUG', False):
+        return HttpResponse('CSRF verification failed.', status=403)
+
+    cookie = request.COOKIES.get('csrftoken')
+    form_token = request.POST.get('csrfmiddlewaretoken')
+    header_token = request.META.get('HTTP_X_CSRFTOKEN') or request.META.get('HTTP_X_CSRF_TOKEN')
+    referer = request.META.get('HTTP_REFERER')
+    host = request.META.get('HTTP_HOST')
+
+    html = (
+        "<html><body>"
+        f"<h2>CSRF verification failed (debug)</h2>"
+        f"<p>Reason: {reason}</p>"
+        "<ul>"
+        f"<li><strong>csrftoken cookie</strong>: {cookie!s}</li>"
+        f"<li><strong>csrfmiddlewaretoken (form)</strong>: {form_token!s}</li>"
+        f"<li><strong>X-CSRFToken header</strong>: {header_token!s}</li>"
+        f"<li><strong>Referer</strong>: {referer!s}</li>"
+        f"<li><strong>Host</strong>: {host!s}</li>"
+        "</ul>"
+        "<p>This page is shown because DEBUG=True. Do not enable in production.</p>"
+        "</body></html>"
+    )
+    return HttpResponse(html, status=403)
+
+
 @require_POST
 def api_vote(request):
+    logger = logging.getLogger(__name__)
     if not request.user.is_authenticated:
-        return HttpResponseForbidden('authentication required')
+        logger.warning('api_vote: unauthenticated request')
+        return JsonResponse({'error': 'authentication required'}, status=403)
 
     candidate_id = request.POST.get('candidate_id')
     if not candidate_id:
-        return HttpResponseBadRequest('candidate_id required')
+        logger.warning('api_vote: candidate_id missing in POST data')
+        return JsonResponse({'error': 'candidate_id required'}, status=400)
 
     candidate = get_object_or_404(Candidate, pk=candidate_id)
     # determine election (either provided or from candidate)
@@ -68,17 +108,20 @@ def api_vote(request):
     try:
         voter = request.user.voter
     except Exception:
-        return HttpResponseBadRequest('user not registered as voter')
+        logger.warning('api_vote: user %s not registered as voter', getattr(request.user, 'username', None))
+        return JsonResponse({'error': 'user not registered as voter'}, status=400)
 
     # Check election validity (dates)
     from django.utils import timezone
     now = timezone.now()
     if election and not (election.start_date <= now <= election.end_date):
-        return HttpResponseBadRequest('election not active')
+        logger.info('api_vote: election not active for election %s', getattr(election, 'id', None))
+        return JsonResponse({'error': 'election not active'}, status=400)
 
     # Check if voter already voted in this election
     if Vote.objects.filter(voter=voter, election=election).exists():
-        return HttpResponseBadRequest('user already voted in this election')
+        logger.info('api_vote: user %s already voted in election %s', getattr(request.user, 'username', None), getattr(election, 'id', None))
+        return JsonResponse({'error': 'user already voted in this election'}, status=400)
 
     vote = Vote.objects.create(voter=voter, candidate=candidate, election=election)
     # attempt to register the vote on-chain (this function will mark vote.valid and
@@ -173,3 +216,23 @@ def api_stats(request):
         participation = round((total_votes / eligible) * 100, 1)
 
     return JsonResponse({'total_votes': total_votes, 'eligible_voters': eligible, 'participation': participation})
+
+
+@require_GET
+def api_blockchain_records(request):
+    """Return recent on-chain records created by the application.
+
+    This endpoint is used by the frontend `blockchain.html` explorer to show
+    recent transactions recorded via OnChainRecord.
+    """
+    qs = OnChainRecord.objects.select_related('candidate', 'election').order_by('-timestamp')[:200]
+    data = []
+    for r in qs:
+        data.append({
+            'txid': r.txid,
+            'candidate': str(r.candidate) if r.candidate else None,
+            'election': str(r.election) if r.election else None,
+            'timestamp': r.timestamp.isoformat(),
+            'status': 'verified',
+        })
+    return JsonResponse({'records': data})

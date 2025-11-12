@@ -31,6 +31,7 @@ urlpatterns = [
     path('blockchain/', TemplateView.as_view(template_name='blockchain.html'), name='blockchain'),
 
     # Página de login
+    # Página de login (usar vista estándar de Django)
     path('login/', auth_views.LoginView.as_view(
         template_name='registration/login.html'
     ), name='login'),
@@ -43,4 +44,6 @@ urlpatterns = [
     # Elections listing
     path('api/elections/', vot_views.api_elections, name='api_elections'),
     path('api/stats/', vot_views.api_stats, name='api_stats'),
+    # Blockchain records (used by blockchain explorer)
+    path('api/blockchain/records/', vot_views.api_blockchain_records, name='api_blockchain_records'),
 ]

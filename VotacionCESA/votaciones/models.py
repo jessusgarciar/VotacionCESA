@@ -40,6 +40,8 @@ class Voter(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     control_number = models.CharField(max_length=50, unique=True)
     is_eligible = models.BooleanField(default=True)
+    # optional blockchain address associated with this voter (Algorand address)
+    blockchain_address = models.CharField(max_length=128, blank=True, null=True)
     # indicador simple si ha votado (nota: para multi-elección esto puede evolucionar a tracking por elección)
     has_voted = models.BooleanField(default=False)
 

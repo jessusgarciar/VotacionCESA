@@ -12,6 +12,13 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+try:
+    # If python-dotenv is available, load variables from a local .env file at project root
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(Path(__file__).resolve().parent.parent, '.env'))
+except Exception:
+    # dotenv is optional in environments where env vars are provided externally
+    pass
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -132,10 +139,29 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_REDIRECT_URL = '/'
 
+# Allow login using control_number via custom backend (falls back to ModelBackend)
+AUTHENTICATION_BACKENDS = [
+    'votaciones.auth_backends.ControlNumberBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 # Algorand (optional) - provide values via environment variables in production
-ALGOD_ADDRESS = os.environ.get('ALGOD_ADDRESS', '')
+# Defaults favor a local Algorand Sandbox (http://localhost:4001) for development.
+ALGOD_ADDRESS = os.environ.get('ALGOD_ADDRESS', 'http://localhost:4001')
 ALGOD_TOKEN = os.environ.get('ALGOD_TOKEN', '')
-ALGOD_HEADERS = None  # set if your provider requires headers
+# Support PureStake/third-party providers via PURESTAKE_APIKEY env var
+ALGOD_HEADERS = None
+PURESTAKE_APIKEY = os.environ.get('PURESTAKE_APIKEY')
+if PURESTAKE_APIKEY:
+    ALGOD_HEADERS = {'X-API-Key': PURESTAKE_APIKEY}
+
+# Application / verification settings
+# ALGORAND_APP_ID: app id (smart contract) used for registration checks (string or int)
+ALGORAND_APP_ID = os.environ.get('ALGORAND_APP_ID', None)
+# Require that voters have a registered blockchain address opted-in to the app (0/1)
+REQUIRE_BLOCKCHAIN_REGISTRATION = bool(int(os.environ.get('REQUIRE_BLOCKCHAIN_REGISTRATION', '0')))
+# Optional whitelist for addresses (comma-separated) used when DEBUG=True
+BLOCKCHAIN_REGISTERED_ADDRESSES = [a.strip() for a in os.environ.get('BLOCKCHAIN_REGISTERED_ADDRESSES', '').split(',') if a.strip()]
 
 # Sender credentials for on-chain txs (use env vars or a secure secret store)
 # ALGORAND_SENDER_MNEMONIC is the easiest for local testing; in production use a key vault
@@ -148,3 +174,7 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '25') or 25)
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = bool(os.environ.get('EMAIL_USE_TLS', ''))
+
+
+# Final values are sourced from environment variables above.
+# (Don't override them here so dev/prod envs can control behavior.)

@@ -76,8 +76,8 @@
       <div class="modal-content">
         <div class="modal-header">
           <div>
-            <h5 class="modal-title" id="candidateModalLabel">Lista / Candidato</h5>
-            <small class="text-muted" id="candidateSubtitle">Descripción breve</small>
+            <h5 class="modal-title" id="candidateModalLabel"></h5>
+            <small class="text-muted" id="candidateSubtitle"></small>
           </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
@@ -114,7 +114,7 @@
 
   <script>
     // Modal logic: populate from data-* attributes on buttons
-    document.addEventListener('click', function(e){
+  document.addEventListener('click', function(e){
       const btn = e.target.closest('.vote-btn, .details-btn');
       if(!btn) return;
       e.preventDefault();
@@ -124,10 +124,13 @@
       const proposals = (btn.dataset.proposals || '').split(';').filter(Boolean);
 
       // Fill modal fields
-      document.getElementById('candidateModalLabel').textContent = list;
-      document.getElementById('candidateSubtitle').textContent = 'Compromiso y Acción';
-      document.getElementById('candidateName').textContent = name;
-      document.getElementById('candidateList').textContent = list;
+  // Header: show the candidate name as the modal title and the planilla (list) below
+  document.getElementById('candidateModalLabel').textContent = name;
+  // keep subtitle empty
+  document.getElementById('candidateSubtitle').textContent = '';
+  // show name in the header and the list name as secondary text in the body
+  document.getElementById('candidateName').textContent = name;
+  document.getElementById('candidateList').textContent = list;
       document.getElementById('candidateImage').src = image;
 
       // Populate members from data-members (JSON encoded) if present

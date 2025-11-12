@@ -29,7 +29,7 @@
     <div class="col-md-3">
       <div class="card stats-card p-3">
         <div class="small text-muted">Estado</div>
-        <div id="statStatus" class="h4 mt-1 text-success">Activa</div>
+        <div id="statStatus" class="h4 mt-1">Activa</div>
       </div>
     </div>
   </div>
@@ -39,7 +39,7 @@
     <div class="btn-group" role="group" aria-label="Navegación principal">
       <a href="{% url 'home' %}" class="btn btn-primary">Votar</a>
       <a href="{% url 'resultados' %}" class="btn btn-outline-secondary">Resultados</a>
-      <a href="#" class="btn btn-outline-secondary">Blockchain</a>
+      <a href="{% url 'blockchain' %}" class="btn btn-outline-secondary">Blockchain</a>
     </div>
   </div>
 
@@ -64,14 +64,19 @@
           const card = document.createElement('div');
           card.className = 'card candidate-card h-100 shadow-sm';
           const image = c.image_url || 'https://picsum.photos/seed/default/800/260';
-          const manifesto = (c.manifesto || '').replace(/\n/g, ' ');
-            card.innerHTML = `\
-              <img src="${image}" class="card-img-top" alt="${c.name}">\
-              <div class="card-body">\
-                <h5 class="card-title">${c.name}</h5>\
-                <p class="card-text text-muted mb-2"><strong>Propuesta:</strong> ${manifesto.substring(0,140)}</p>\
-                <a href="#" class="btn vote-btn w-100" data-bs-toggle="modal" data-candidate-id="${c.id}" data-name="${c.name}" data-list="${c.list_name}" data-image="${image}" data-proposals="${(manifesto).replace(/"/g,'\"')}" data-members="">Ver detalles y votar</a>\
-              </div>`;
+          // build proposals list (top 3) and prepare data-proposals for modal (semicolon separated)
+          const proposalsArr = (c.manifesto || '').split('\n').map(s=>s.trim()).filter(Boolean);
+          const topProposals = proposalsArr.slice(0,3);
+          const proposalsHtml = topProposals.map(p => `<li>${p}</li>`).join('');
+          const proposalsData = (c.manifesto || '').replace(/\n/g,';').replace(/"/g,'\\"');
+              card.innerHTML = `\
+                <img src="${image}" class="card-img-top" alt="${c.name}">\
+                <div class="card-body">\
+                  <h5 class="card-title">${c.name}</h5>\
+                  <p class="small text-muted mb-2">Propuestas principales:</p>\
+                  <ul class="small mb-3">${proposalsHtml}</ul>\
+                  <a href="#" class="btn vote-btn w-100" data-bs-toggle="modal" data-candidate-id="${c.id}" data-name="${c.name}" data-list="${c.list_name}" data-image="${image}" data-proposals="${proposalsData}" data-members="">Ver detalles y votar</a>\
+                </div>`;
           col.appendChild(card);
             // attach members JSON to vote button for modal rendering
             try{
@@ -121,7 +126,12 @@
           if(totalEl) totalEl.textContent = stats.total_votes ?? totalEl.textContent;
           if(eligibleEl) eligibleEl.textContent = stats.eligible_voters ?? eligibleEl.textContent;
           if(partEl) partEl.textContent = (stats.participation != null ? stats.participation + '%' : partEl.textContent);
-          if(statusEl) statusEl.textContent = (active && active.is_active) ? 'Activa' : 'Cerrada';
+          if(statusEl) {
+            const isActive = !!(active && active.is_active);
+            statusEl.textContent = isActive ? 'Activa' : 'Cerrada';
+            statusEl.classList.remove('text-success','text-danger');
+            statusEl.classList.add(isActive ? 'text-success' : 'text-danger');
+          }
         }catch(e){ console.warn('Could not load stats', e); }
       })();
     });

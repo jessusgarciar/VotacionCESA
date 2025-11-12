@@ -10,25 +10,25 @@
     <div class="col-md-3">
       <div class="card stats-card p-3">
         <div class="small text-muted">Total de Votos</div>
-        <div class="h4 mt-1">0</div>
+        <div id="statTotalVotes" class="h4 mt-1">0</div>
       </div>
     </div>
     <div class="col-md-3">
       <div class="card stats-card p-3">
         <div class="small text-muted">Votantes Elegibles</div>
-        <div class="h4 mt-1">0</div>
+        <div id="statEligibleVoters" class="h4 mt-1">0</div>
       </div>
     </div>
     <div class="col-md-3">
       <div class="card stats-card p-3">
         <div class="small text-muted">Participación</div>
-        <div class="h4 mt-1">0.0%</div>
+        <div id="statParticipation" class="h4 mt-1">0.0%</div>
       </div>
     </div>
     <div class="col-md-3">
       <div class="card stats-card p-3">
         <div class="small text-muted">Estado</div>
-        <div class="h4 mt-1 text-success">Activa</div>
+        <div id="statStatus" class="h4 mt-1">Activa</div>
       </div>
     </div>
   </div>
@@ -43,18 +43,18 @@
   </div>
 
   <div class="card shadow-sm">
-    <div class="card-body">
+      <div class="card-body">
       <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
           <h5 class="card-title mb-1"><i class="bi bi-hdd-stack"></i> Explorador de Blockchain</h5>
           <p class="small text-muted mb-0">Visualiza las transacciones (tokens) registradas para las votaciones.</p>
         </div>
         <div>
-          <span class="badge bg-light text-dark">0 Transacciones</span>
+          <span id="txCountBadge" class="badge bg-light text-dark">0 Transacciones</span>
         </div>
       </div>
 
-      <!-- Estado vacío / tabla de transacciones -->
+      <!-- Estado vacío / tabla de transacciones
       <div class="text-center py-5">
         <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="mb-3 text-muted" style="opacity:.7">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v6a4 4 0 004 4h10"/>
@@ -69,9 +69,10 @@
       </div>
     </div>
   </div>
+  -->
 
   <!-- Ejemplo de tabla (oculto ya que no hay transacciones) -->
-  <!--
+  <!-- -- Tabla de transacciones -->
   <div class="card mt-4">
     <div class="card-body">
       <div class="table-responsive">
@@ -85,20 +86,101 @@
               <th>Estado</th>
             </tr>
           </thead>
-          <tbody>
-            <tr>
-              <td><code>3b9f...a7c1</code></td>
-              <td>Transfer</td>
-              <td>Elección Estudiantil 2025</td>
-              <td>2025-11-06 12:34</td>
-              <td><span class="badge bg-success">Verificado</span></td>
-            </tr>
+          <tbody id="txTableBody">
+            <!-- Transaction rows populated by JS -->
           </tbody>
         </table>
       </div>
     </div>
   </div>
-  -->
 
+  <script>
+    async function initCandidates(){
+      try{
+        // fetch elections and pick active one
+        const resE = await fetch('{% url "api_elections" %}');
+        const jsonE = await resE.json();
+        const elections = jsonE.elections || [];
+        const active = elections.find(e=>e.is_active) || elections[0] || null;
+        const electionId = active? active.id : null;
+        fetchAndRenderCandidates('candidatesGrid', electionId);
+      }catch(e){
+        console.warn('Could not load elections', e);
+        fetchAndRenderCandidates('candidatesGrid');
+      }
+    }
+
+      document.addEventListener('DOMContentLoaded', function(){
+      initCandidates();
+      // also load stats for the active election
+      (async function loadStats(){
+        try{
+          const resE = await fetch('{% url "api_elections" %}');
+          const jsonE = await resE.json();
+          const elections = jsonE.elections || [];
+          const active = elections.find(e=>e.is_active) || elections[0] || null;
+          const electionId = active? active.id : null;
+          const url = new URL('{% url "api_stats" %}', window.location.origin);
+          if(electionId) url.searchParams.set('election_id', electionId);
+          const resS = await fetch(url);
+          const stats = await resS.json();
+          const totalEl = document.getElementById('statTotalVotes');
+          const eligibleEl = document.getElementById('statEligibleVoters');
+          const partEl = document.getElementById('statParticipation');
+          const statusEl = document.getElementById('statStatus');
+          if(totalEl) totalEl.textContent = stats.total_votes ?? totalEl.textContent;
+          if(eligibleEl) eligibleEl.textContent = stats.eligible_voters ?? eligibleEl.textContent;
+          if(partEl) partEl.textContent = (stats.participation != null ? stats.participation + '%' : partEl.textContent);
+          if(statusEl) {
+            const isActive = !!(active && active.is_active);
+            statusEl.textContent = isActive ? 'Activa' : 'Cerrada';
+            statusEl.classList.remove('text-success','text-danger');
+            statusEl.classList.add(isActive ? 'text-success' : 'text-danger');
+          }
+        }catch(e){ console.warn('Could not load stats', e); }
+      })();
+    });
+
+  </script>
+  <script>
+    // Fetch recent OnChainRecord entries and render them into the table
+    async function loadBlockchainRecords(){
+      try{
+        const res = await fetch('{% url "api_blockchain_records" %}');
+        const json = await res.json();
+        const records = json.records || [];
+        const tbody = document.getElementById('txTableBody');
+        const badge = document.getElementById('txCountBadge');
+        if(badge) badge.textContent = `${records.length} Transacciones`;
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        for(const r of records){
+          const tr = document.createElement('tr');
+          const txTd = document.createElement('td');
+          txTd.innerHTML = `<code>${r.txid.substring(0,8)}...${r.txid.slice(-8)}</code>`;
+          const typeTd = document.createElement('td');
+          typeTd.textContent = 'VoteTx';
+          const voteTd = document.createElement('td');
+          voteTd.textContent = r.election || (r.candidate || 'N/A');
+          const timeTd = document.createElement('td');
+          timeTd.textContent = new Date(r.timestamp).toLocaleString();
+          const statusTd = document.createElement('td');
+          statusTd.innerHTML = `<span class="badge bg-success">${r.status}</span>`;
+          tr.appendChild(txTd);
+          tr.appendChild(typeTd);
+          tr.appendChild(voteTd);
+          tr.appendChild(timeTd);
+          tr.appendChild(statusTd);
+          tbody.appendChild(tr);
+        }
+      }catch(e){
+        console.warn('Could not load blockchain records', e);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      loadBlockchainRecords();
+    });
+  </script>
 </div>
 {% endblock %}
