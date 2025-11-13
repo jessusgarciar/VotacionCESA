@@ -15,7 +15,9 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.views.generic import TemplateView
 from votaciones import views as vot_views
@@ -46,4 +48,9 @@ urlpatterns = [
     path('api/stats/', vot_views.api_stats, name='api_stats'),
     # Blockchain records (used by blockchain explorer)
     path('api/blockchain/records/', vot_views.api_blockchain_records, name='api_blockchain_records'),
+    # Include app-level management pages under /manage/
+    path('manage/', include('votaciones.urls')),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

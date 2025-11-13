@@ -1,4 +1,5 @@
 <!doctype html>
+{% load static %}
 <html lang="es">
 <head>
   <meta charset="utf-8">
@@ -11,7 +12,7 @@
   <style>
     /* Small custom styles to better match the design */
     .topbar {
-      background: linear-gradient(90deg,#0b63f6,#0a58d9);
+      background: #233d7a; /* requested navbar color */
       color: white;
     }
     .brand-title { font-weight:700; }
@@ -28,11 +29,24 @@
     <div class="container d-flex align-items-center justify-content-between">
       <div class="d-flex align-items-center gap-3">
         <div class="d-flex align-items-center">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="me-2">
-            <rect width="24" height="24" rx="4" fill="#fff" opacity="0.15"/>
-            <path d="M6 12h12" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M6 7h12" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
-          </svg>
+          <img id="navLogo" src="{% static 'logo.png' %}" alt="Logo" width="36" height="36" class="me-2" style="object-fit:contain;" />
+          <script>
+            (function(){
+              try{
+                var img = document.getElementById('navLogo');
+                if(!img) return;
+                img.addEventListener('error', function(){
+                  try{
+                    // try loading a bundled SVG fallback
+                    this.src = '{% static "logo.svg" %}';
+                  }catch(e){
+                    // last-resort: hide image
+                    this.style.display = 'none';
+                  }
+                });
+              }catch(e){/* silent */}
+            })();
+          </script>
         </div>
         <div>
           <div class="brand-title">Sistema de Votación CESA</div>
@@ -40,9 +54,18 @@
         </div>
       </div>
 
-      <div class="d-flex align-items-center gap-3">
+  <div class="d-flex align-items-center gap-3">
         <div class="badge-blockchain">Blockchain Verificado</div>
-        {% if user.is_authenticated %}
+          {% if user.is_authenticated %}
+          {% if user.is_staff %}
+            <nav class="me-3">
+              <ul class="nav">
+                <li class="nav-item"><a class="nav-link text-light" href="/manage/create-user/">Crear usuario</a></li>
+                <li class="nav-item"><a class="nav-link text-light" href="/manage/create-voter/">Agregar votante</a></li>
+                <li class="nav-item"><a class="nav-link text-light" href="/manage/create-candidate/">Crear planilla</a></li>
+              </ul>
+            </nav>
+          {% endif %}
           <div class="text-end">
             <div>{{ user.voter.control_number|default:user.username }}</div>
             <small>Votante verificado</small>
@@ -51,7 +74,7 @@
             {% csrf_token %}
             <button type="submit" class="btn btn-sm btn-light">Cerrar sesión</button>
           </form>
-        {% else %}
+          {% else %}
           <a class="btn btn-sm btn-light" href="{% url 'login' %}">Iniciar sesión</a>
         {% endif %}
       </div>
@@ -69,6 +92,23 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
           integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
           crossorigin="anonymous"></script>
+
+  <style>
+    /* Make the small nav buttons inside the topbar use the navbar color */
+    .topbar .btn-group .btn,
+    .topbar .btn-group .btn.btn-outline-secondary,
+    .topbar .btn-group .btn.btn-primary {
+      background: #233d7a;
+      color: #fff;
+      border-color: #233d7a;
+    }
+    .topbar .btn-group .btn:hover {
+      filter: brightness(0.95);
+    }
+    .topbar .nav-link.text-light {
+      color: #fff !important;
+    }
+  </style>
 
   <!-- Candidate details / voting modal -->
   <div class="modal fade" id="candidateModal" tabindex="-1" aria-labelledby="candidateModalLabel" aria-hidden="true">
@@ -140,18 +180,27 @@
         const membersJson = btn.dataset.members || btn.getAttribute('data-members') || '[]';
         const members = JSON.parse(membersJson || '[]');
         if(Array.isArray(members) && members.length>0){
+          const candidateColor = btn.dataset.color || btn.getAttribute('data-color') || '#198754';
           members.forEach(m => {
             const memberCard = document.createElement('div');
             memberCard.className = 'col-md-6';
-            const roleBadge = m.role? `<small class="badge bg-success mb-1">${m.role}</small>` : '';
-            memberCard.innerHTML = `<div class="card p-3"><div class="d-flex"><div class="me-3" style="width:64px;height:64px;background:#eee;border-radius:.5rem; background-image:url(${image}); background-size:cover"></div><div>${roleBadge}<div class="fw-semibold">${m.full_name}</div><div class="small text-muted">&nbsp;</div></div></div></div>`;
+            const roleBadge = m.role? `<small class="badge mb-1" style="background:${candidateColor};color:#fff">${m.role}</small>` : '';
+            // Compute initials (first letters of up to two name parts)
+            const nameParts = (m.full_name || '').split(/\s+/).filter(Boolean);
+            const initials = (nameParts.slice(0,2).map(p => p[0].toUpperCase()).join('')) || '?';
+            // Render a circular avatar with initials instead of a photo
+            memberCard.innerHTML = `<div class="card p-3"><div class="d-flex"><div class="me-3 d-flex align-items-center justify-content-center rounded-circle bg-secondary text-white fw-bold" style="width:64px;height:64px;">${initials}</div><div>${roleBadge}<div class="fw-semibold">${m.full_name}</div><div class="small text-muted">&nbsp;</div></div></div></div>`;
             membersEl.appendChild(memberCard);
           });
         }else{
           // fallback: show the main candidate as presidente
           const memberCard = document.createElement('div');
           memberCard.className = 'col-md-6';
-          memberCard.innerHTML = `<div class="card p-3"><div class="d-flex"><div class="me-3" style="width:64px;height:64px;background:#eee;border-radius:.5rem; background-image:url(${image}); background-size:cover"></div><div><small class="badge bg-success mb-1">Presidente</small><div class="fw-semibold">${name}</div><div class="small text-muted">Cargo / Facultad</div></div></div></div>`;
+          // Fallback: show circular initials avatar for president
+          const presParts = (name || '').split(/\s+/).filter(Boolean);
+          const presInitials = (presParts.slice(0,2).map(p => p[0].toUpperCase()).join('')) || '?';
+          const candidateColor = btn.dataset.color || btn.getAttribute('data-color') || '#198754';
+          memberCard.innerHTML = `<div class="card p-3"><div class="d-flex"><div class="me-3 d-flex align-items-center justify-content-center rounded-circle bg-secondary text-white fw-bold" style="width:64px;height:64px;">${presInitials}</div><div><small class="badge mb-1" style="background:${candidateColor};color:#fff">Presidente</small><div class="fw-semibold">${name}</div><div class="small text-muted">Cargo / Facultad</div></div></div></div>`;
           membersEl.appendChild(memberCard);
         }
       }catch(e){
@@ -162,10 +211,11 @@
       // Populate proposals
       const proposalsEl = document.getElementById('candidateProposals');
       proposalsEl.innerHTML = '';
-      proposals.forEach((p, idx) => {
+        const proposalColor = btn.dataset.color || btn.getAttribute('data-color') || '#198754';
+        proposals.forEach((p, idx) => {
         const col = document.createElement('div');
         col.className = 'col-md-6';
-        col.innerHTML = `<div class="card p-3"><div class="d-flex align-items-start gap-3"><div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" style="width:34px;height:34px">${idx+1}</div><div class="small">${p}</div></div></div>`;
+        col.innerHTML = `<div class="card p-3"><div class="d-flex align-items-start gap-3"><div class="rounded-circle" style="background:${proposalColor};color:#fff;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%">${idx+1}</div><div class="small">${p}</div></div></div>`;
         proposalsEl.appendChild(col);
       });
 
@@ -176,7 +226,13 @@
 
       // Confirm vote logic (POST to /api/vote/)
       const confirmBtn = document.getElementById('confirmVoteBtn');
-      confirmBtn.textContent = `Confirmar Voto por ${list}`;
+    // style the confirm button using the candidate's color if provided
+    const candidateColor = btn.dataset.color || btn.getAttribute('data-color') || '#198754';
+    confirmBtn.classList.remove('btn-success');
+    confirmBtn.style.background = candidateColor;
+    confirmBtn.style.color = '#fff';
+    confirmBtn.style.border = 'none';
+    confirmBtn.textContent = `Confirmar Voto por ${name}`;
       confirmBtn.disabled = false;
       // remove previous onclick handlers
       confirmBtn.onclick = null;
@@ -189,7 +245,7 @@
         const candidateId = btn.dataset.candidateId || btn.dataset.candidateId === 0 ? btn.dataset.candidateId : null;
         if(!candidateId){
           confirmBtn.textContent = 'Error: candidato desconocido';
-          setTimeout(() => { confirmBtn.disabled = false; confirmBtn.textContent = `Confirmar Voto por ${list}`; }, 1200);
+            setTimeout(() => { confirmBtn.disabled = false; confirmBtn.textContent = `Confirmar Voto por ${name}`; }, 1200);
           return;
         }
 
@@ -257,7 +313,7 @@
           }catch(e){}
           alert(msg);
           confirmBtn.disabled = false;
-          confirmBtn.textContent = `Confirmar Voto por ${list}`;
+          confirmBtn.textContent = `Confirmar Voto por ${name}`;
         }).finally(()=>{
           // remove this handler to avoid multiple listeners if modal reopened
           confirmBtn.removeEventListener('click', onConfirm);

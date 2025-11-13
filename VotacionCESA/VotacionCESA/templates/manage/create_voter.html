@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h4 class="card-title">Crear Votante</h4>
+    <p class="text-muted">Asigna un User existente y define su número de control y dirección blockchain (opcional).</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="mb-3">
+        <label class="form-label">Usuario</label>
+        {{ form.user }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Número de control</label>
+        {{ form.control_number }}
+      </div>
+      <div class="form-check mb-3">
+        {{ form.is_eligible }} <label class="form-check-label">Elegible para votar</label>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Dirección Algorand (opcional)</label>
+        {{ form.blockchain_address }}
+      </div>
+      <button class="btn btn-primary" type="submit">Guardar votante</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

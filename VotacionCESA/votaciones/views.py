@@ -9,6 +9,19 @@ from .models import Candidate, Voter, Vote, CandidateMember, Election, OnChainRe
 from . import algorand_reader
 from django.db.models import Q
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import user_passes_test
+from django.urls import reverse_lazy
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .forms import FrontendUserCreationForm, VoterForm, CandidateForm
+from django.urls import reverse
+from django.db import IntegrityError
+from django.conf import settings
+from django.core.files.storage import default_storage
+from django.utils.text import slugify
+import os
+from django.forms import inlineformset_factory
+from .models import CandidateMember
 
 
 @require_GET
@@ -32,7 +45,7 @@ def api_candidates(request):
             'id': c.id,
             'name': c.name,
             'list_name': c.list_name,
-            'image_url': c.image_url,
+            'image_url': (c.image_url.url if getattr(c, 'image_url') and hasattr(c.image_url, 'url') else ''),
             'manifesto': c.manifesto,
             # Prefer indexer-derived counts when available, otherwise prefer local on-chain mirror,
             # and finally fall back to DB count.
@@ -236,3 +249,100 @@ def api_blockchain_records(request):
             'status': 'verified',
         })
     return JsonResponse({'records': data})
+
+
+# --- Admin frontend forms (staff-only) -------------------------------------------------
+def staff_required(view_func):
+    # Use reverse_lazy to avoid resolving the 'login' URL at import time.
+    return user_passes_test(lambda u: u.is_active and u.is_staff, login_url=reverse_lazy('login'))(view_func)
+
+
+@staff_required
+def create_user_view(request):
+    if request.method == 'POST':
+        form = FrontendUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            email = form.cleaned_data.get('email')
+            if email:
+                user.email = email
+                user.save(update_fields=['email'])
+            # optionally create voter profile
+            if form.cleaned_data.get('create_voter'):
+                control = form.cleaned_data.get('control_number') or f"ctrl_{user.username}"
+                try:
+                    Voter.objects.create(user=user, control_number=control, is_eligible=True)
+                except IntegrityError:
+                    messages.error(request, 'El número de control ya existe; el usuario fue creado pero no se creó el perfil de votante.')
+            messages.success(request, f'Usuario {user.username} creado.')
+            return redirect(reverse('votaciones:create_user'))
+    else:
+        form = FrontendUserCreationForm()
+    return render(request, 'manage/create_user.html', {'form': form})
+
+
+@staff_required
+def create_voter_view(request):
+    if request.method == 'POST':
+        form = VoterForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Votante creado/actualizado correctamente.')
+            return redirect(reverse('votaciones:create_voter'))
+    else:
+        form = VoterForm()
+    return render(request, 'manage/create_voter.html', {'form': form})
+
+
+@staff_required
+def create_candidate_view(request):
+    # Use a ModelForm for CandidateMember so we can set placeholders/widgets
+    from .forms import CandidateMemberForm
+    MemberFormset = inlineformset_factory(
+        Candidate, CandidateMember,
+        form=CandidateMemberForm,
+        fields=('full_name', 'role', 'order'),
+        extra=3,
+        can_delete=True,
+    )
+
+    if request.method == 'POST':
+        form = CandidateForm(request.POST, request.FILES)
+        # Validate candidate form first. We'll bind the member formset to the saved
+        # candidate instance so the inline formset has a parent to attach to.
+        if form.is_valid():
+            candidate = form.save(commit=False)
+            # handle uploaded image if present
+            image = form.cleaned_data.get('image')
+            if image:
+                # create a safe filename
+                base = slugify(candidate.name) or 'candidate'
+                ext = os.path.splitext(image.name)[1]
+                filename = f'candidates/{base}{ext}'
+                # ensure unique filename
+                i = 1
+                save_name = filename
+                while default_storage.exists(save_name):
+                    save_name = f'candidates/{base}-{i}{ext}'
+                    i += 1
+                saved_path = default_storage.save(save_name, image)
+                # assign saved path to ImageField
+                candidate.image_url = saved_path
+            candidate.save()
+            # now bind formset to the saved candidate and validate/save members
+            formset = MemberFormset(request.POST, instance=candidate)
+            if formset.is_valid():
+                formset.save()
+            else:
+                # If members invalid, render page with form and formset errors
+                return render(request, 'manage/create_candidate.html', {'form': form, 'formset': formset})
+            messages.success(request, 'Planilla (Candidate) creada correctamente.')
+            return redirect(reverse('votaciones:create_candidate'))
+        else:
+            # Candidate form invalid: show an empty formset (members errors can't be validated without a parent instance)
+            formset = MemberFormset()
+    else:
+        form = CandidateForm()
+        formset = MemberFormset()
+
+    return render(request, 'manage/create_candidate.html', {'form': form, 'formset': formset})

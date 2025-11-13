@@ -37,7 +37,7 @@
   <!-- Tabs -->
   <div class="d-flex justify-content-center mb-4">
     <div class="btn-group" role="group" aria-label="Navegación principal">
-      <a href="{% url 'home' %}" class="btn btn-primary">Votar</a>
+      <a href="{% url 'home' %}" class="btn" style="background:#233d7a; color:#fff;">Votar</a>
       <a href="{% url 'resultados' %}" class="btn btn-outline-secondary">Resultados</a>
       <a href="{% url 'blockchain' %}" class="btn btn-outline-secondary">Blockchain</a>
     </div>
@@ -58,7 +58,9 @@
         const candidates = json.candidates || [];
         const container = document.getElementById(containerId);
         container.innerHTML = '';
-        candidates.forEach(c => {
+        const palette = ['#0d6efd', '#198754', '#fd7e14', '#6f42c1', '#dc3545', '#0dcaf0'];
+        candidates.forEach((c, idx) => {
+          const color = palette[idx % palette.length];
           const col = document.createElement('div');
           col.className = 'col';
           const card = document.createElement('div');
@@ -72,17 +74,25 @@
               card.innerHTML = `\
                 <img src="${image}" class="card-img-top" alt="${c.name}">\
                 <div class="card-body">\
-                  <h5 class="card-title">${c.name}</h5>\
+                  <h5 class="card-title">${c.name}</h5>
                   <p class="small text-muted mb-2">Propuestas principales:</p>\
                   <ul class="small mb-3">${proposalsHtml}</ul>\
-                  <a href="#" class="btn vote-btn w-100" data-bs-toggle="modal" data-candidate-id="${c.id}" data-name="${c.name}" data-list="${c.list_name}" data-image="${image}" data-proposals="${proposalsData}" data-members="">Ver detalles y votar</a>\
+                      <a href="#" class="btn vote-btn w-100" style="background:${color};color:#fff;border:none" data-color="${color}" data-bs-toggle="modal" data-candidate-id="${c.id}" data-name="${c.name}" data-list="${c.list_name}" data-image="${image}" data-proposals="${proposalsData}" data-members="">Ver detalles y votar</a>\
                 </div>`;
           col.appendChild(card);
-            // attach members JSON to vote button for modal rendering
-            try{
-              const btn = card.querySelector('.vote-btn');
-              if(btn){ btn.dataset.members = JSON.stringify(c.members || []); }
-            }catch(e){ console.warn('could not attach members to vote button', e); }
+    // attach members JSON to vote button for modal rendering
+    try{
+      const btn = card.querySelector('.vote-btn');
+      if(btn){ 
+        btn.dataset.members = JSON.stringify(c.members || []); 
+        btn.dataset.color = color; 
+        // ensure the visual color is applied (some browsers/contexts may ignore inline HTML style)
+                    // apply with !important to override any competing CSS rules
+                    btn.style.setProperty('background', color, 'important');
+                    btn.style.setProperty('color', '#fff', 'important');
+                    btn.style.setProperty('border', 'none', 'important');
+      }
+    }catch(e){ console.warn('could not attach members to vote button', e); }
           container.appendChild(col);
         });
       }catch(err){

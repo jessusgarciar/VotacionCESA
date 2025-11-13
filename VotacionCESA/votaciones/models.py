@@ -7,7 +7,10 @@ User = get_user_model()
 class Candidate(models.Model):
     name = models.CharField(max_length=200)
     list_name = models.CharField(max_length=200, blank=True)
-    image_url = models.URLField(blank=True)
+    # store uploaded candidate images in MEDIA_ROOT/candidates/
+    # keep the name `image_url` to minimize code changes elsewhere;
+    # change the field type to ImageField so Django can manage uploads.
+    image_url = models.ImageField(upload_to='candidates/', blank=True, null=True)
     manifesto = models.TextField(blank=True)
     votes_count = models.PositiveIntegerField(default=0)
     # cada candidate/planilla pertenece a una elección

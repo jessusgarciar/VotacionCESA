@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h4 class="card-title">Crear Planilla</h4>
+    <p class="text-muted">Rellena los datos de la planilla</p>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="mb-3">
+        <label class="form-label">Nombre</label>
+        {{ form.name }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Nombre de la Lista</label>
+        {{ form.list_name }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Subir imagen</label>
+        {{ form.image }}
+        {% if form.image.errors %}<div class="text-danger small">{{ form.image.errors }}</div>{% endif %}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Manifiesto / Propuestas</label>
+        {{ form.manifesto }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Elección</label>
+        {{ form.election }}
+      </div>
+      <hr>
+      <h5>Integrantes de la planilla</h5>
+      <p class="text-muted small">Agrega los integrantes (Nombre y Cargo). Usa el botón para añadir filas; puedes eliminar una fila con el icono correspondiente.</p>
+
+      <div id="members-formset" class="mb-3">
+        {{ formset.management_form }}
+
+        <!-- Hidden template: Django's empty_form rendered and kept for cloning -->
+        <div id="empty-form-template" style="display:none">
+          <div class="member-row row g-2 align-items-center mb-2">
+            <div class="col-md-6">
+              <label class="form-label visually-hidden">Nombre</label>
+              {{ formset.empty_form.full_name }}
+              {{ formset.empty_form.order }}
+            </div>
+            <div class="col-md-5">
+              <label class="form-label visually-hidden">Cargo</label>
+              {{ formset.empty_form.role }}
+            </div>
+            <div class="col-md-1 text-end">
+              <button type="button" class="btn btn-outline-danger btn-sm remove-member" title="Eliminar">&times;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Render existing forms (if any) in a friendly card list -->
+        <div id="members-list">
+          {% for f in formset.forms %}
+            <div class="member-row row g-2 align-items-center mb-2">
+              <div class="col-md-6">
+                <label class="form-label">Nombre</label>
+                  {{ f.full_name }}
+                  {{ f.order }}
+                {% if f.full_name.errors %}<div class="text-danger small">{{ f.full_name.errors }}</div>{% endif %}
+              </div>
+              <div class="col-md-5">
+                <label class="form-label">Cargo</label>
+                {{ f.role }}
+                {% if f.role.errors %}<div class="text-danger small">{{ f.role.errors }}</div>{% endif %}
+              </div>
+              <div class="col-md-1 text-end">
+                {# If a DELETE checkbox exists, render it hidden and show a friendly remove button #}
+                {% if f.DELETE %}
+                  <div class="d-none">{{ f.DELETE }}</div>
+                {% endif %}
+                <button type="button" class="btn btn-outline-danger btn-sm remove-member" title="Eliminar">&times;</button>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="mt-2">
+          <button type="button" id="add-member" class="btn btn-sm btn-outline-primary">+ Añadir integrante</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">Crear planilla</button>
+    </form>
+  </div>
+</div>
+<script>
+  // Simple client-side helper to clone an empty formset row
+  (function(){
+    const addBtn = document.getElementById('add-member');
+    if(!addBtn) return;
+    addBtn.addEventListener('click', function(){
+      const formset = document.getElementById('members-formset');
+      const total = formset.querySelector('[name$="-TOTAL_FORMS"]');
+      if(!total) return;
+      const current = parseInt(total.value,10);
+      const template = document.getElementById('empty-form-template');
+      if(!template) return;
+      let newHtml = template.innerHTML.replace(/__prefix__/g, current);
+      const wrapper = document.createElement('div');
+      wrapper.className = 'member-row row g-2 align-items-center mb-2';
+      wrapper.innerHTML = newHtml;
+      // wire remove button on the newly added row
+      const removeBtn = wrapper.querySelector('.remove-member');
+      if(removeBtn){
+        removeBtn.addEventListener('click', function(){
+          // If the row contains a DELETE checkbox, check it and hide the row
+          const del = wrapper.querySelector('input[type="checkbox"][name$="-DELETE"]');
+          if(del){ del.checked = true; wrapper.style.display = 'none'; }
+          else { wrapper.remove(); }
+        });
+      }
+      // append to members-list
+      const list = document.getElementById('members-list');
+      list.appendChild(wrapper);
+      total.value = current + 1;
+    });
+    // wire existing remove buttons
+    document.querySelectorAll('.remove-member').forEach(btn => {
+      btn.addEventListener('click', function(e){
+        const row = e.target.closest('.member-row');
+        if(!row) return;
+        const del = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+        if(del){ del.checked = true; row.style.display = 'none'; }
+        else { row.remove(); }
+      });
+    });
+  })();
+</script>
+{% endblock %}

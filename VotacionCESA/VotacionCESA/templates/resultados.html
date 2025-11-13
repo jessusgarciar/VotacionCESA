@@ -37,7 +37,7 @@
   <div class="d-flex justify-content-center mb-4">
     <div class="btn-group" role="group" aria-label="Navegación principal">
       <a href="{% url 'home' %}" class="btn btn-outline-secondary">Votar</a>
-      <a href="{% url 'resultados' %}" class="btn btn-primary">Resultados</a>
+      <a href="{% url 'resultados' %}" class="btn" style="background:#233d7a; color:#fff;">Resultados</a>
   <a href="{% url 'blockchain' %}" class="btn btn-outline-secondary">Blockchain</a>
     </div>
   </div>
@@ -57,7 +57,9 @@
         const total = candidates.reduce((s,c)=>s+(c.votes_count||0),0) || 0;
         const container = document.getElementById(containerId);
         container.innerHTML = '';
-        candidates.forEach(c => {
+        const palette = ['#0d6efd', '#198754', '#fd7e14', '#6f42c1', '#dc3545', '#0dcaf0'];
+        candidates.forEach((c, idx) => {
+          const color = palette[idx % palette.length];
           const pct = total? ((c.votes_count/total)*100).toFixed(1):0;
           const col = document.createElement('div');
           col.className = 'col';
@@ -78,17 +80,17 @@
                 <small class="text-muted votes-count">${c.votes_count} (${pct}%)</small>\
               </div>\
               <div class="progress" style="height:10px">\
-                <div class="progress-bar" role="progressbar" style="width:${pct}%" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"></div>\
+                <div class="progress-bar" role="progressbar" style="width:${pct}%;background:${color}" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"></div>\
               </div>\
               <div class="mt-3 d-flex justify-content-end">\
-                <a href="#" class="btn btn-sm btn-outline-secondary details-btn" data-bs-toggle="modal" data-candidate-id="${c.id}" data-name="${c.name}" data-list="${c.list_name}" data-image="${image}" data-proposals="${(c.manifesto||'').replace(/\n/g,';')}" data-members="">Detalles</a>\
+                <a href="#" class="btn btn-sm details-btn" style="background:${color};color:#fff;border:none" data-color="${color}" data-bs-toggle="modal" data-candidate-id="${c.id}" data-name="${c.name}" data-list="${c.list_name}" data-image="${image}" data-proposals="${(c.manifesto||'').replace(/\n/g,';')}" data-members="">Detalles</a>\
               </div>\
             </div>`;
           col.appendChild(card);
           // attach members data as JSON to the button dataset so modal can render them
           try{
             const btn = card.querySelector('.details-btn');
-            if(btn){ btn.dataset.members = JSON.stringify(c.members || []); }
+            if(btn){ btn.dataset.members = JSON.stringify(c.members || []); btn.dataset.color = color; }
           }catch(e){ console.warn('could not attach members', e); }
           container.appendChild(col);
         });
