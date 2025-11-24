@@ -13,10 +13,11 @@ Note: this file deliberately keeps operations simple and synchronous. For produc
 you'll want proper key management, secure storage, retries and asynchronous handling.
 """
 from typing import Optional
+import base64
 import os
 import json
 import time
-import uuid
+import secrets
 
 try:
     from algosdk.v2client import algod
@@ -30,15 +31,14 @@ from django.conf import settings
 
 
 def _simulate_send(note_bytes: bytes) -> str:
-    """Fallback simulation that returns a uuid as txid."""
-    return str(uuid.uuid4())
+    pseudo_bytes = secrets.token_bytes(35) 
+    return base64.b32encode(pseudo_bytes).decode('ascii').rstrip('=').upper()
 
 
 def send_vote_tx(election_id: int, candidate_id: int, note: Optional[bytes] = None, wait_for_confirmation: bool = True) -> str:
-    """Send a vote representation to Algorand and return txid.
+    """Envía una representación de voto a Algorand y devuelve el txid.
 
-    The transaction note should NOT include voter-identifying information.
-    If Algorand SDK is not configured, this will simulate and return a UUID.
+    la transacción no debe incluir información que identifique al votante.
     """
     note = note or json.dumps({'election_id': election_id, 'candidate_id': candidate_id}).encode('utf-8')
 

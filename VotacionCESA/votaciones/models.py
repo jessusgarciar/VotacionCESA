@@ -77,11 +77,11 @@ class Vote(models.Model):
         self.save(update_fields=['valid'])
 
     def register_on_blockchain(self):
-        """Register this vote on the blockchain and store the txid in `hash_block`.
+        """Registra este voto en la cadena de bloques y almacena el txid en `hash_block`.
 
-        Uses `votaciones.algorand_integration.send_vote_tx`. If the integration is not
-        configured, a simulated txid (UUID) will be stored. The note payload intentionally
-        excludes any voter-identifying information to help preserve anonymity on-chain.
+        Usa `votaciones.algorand_integration.send_vote_tx`. La carga útil de la nota
+        excluye intencionalmente cualquier información que identifique al votante para
+        ayudar a preservar el anonimato en la cadena.
         """
         try:
             from . import algorand_integration as algointeg
@@ -140,11 +140,11 @@ class Election(models.Model):
 
 
 class OnChainRecord(models.Model):
-    """A local, minimal record mirroring a successfully registered on-chain vote.
+    """Un registro local mínimo que refleja una votación en cadena registrada correctamente.
 
-    This model intentionally does NOT reference the Voter to preserve anonymity.
-    It stores the txid returned by the blockchain and references the Candidate so
-    results can be computed from these records.
+    Este modelo no hace referencia al votante intencionalmente para preservar el anonimato.
+    Almacena el txid devuelto por la blockchain y referencia al Candidato para que
+    los resultados puedan calcularse a partir de estos registros.
     """
     txid = models.CharField(max_length=200, unique=True)
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='onchain_records')

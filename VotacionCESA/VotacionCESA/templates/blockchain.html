@@ -94,6 +94,27 @@
     </div>
   </div>
 
+  <div id="transactionTabWrapper" class="card mt-4 d-none">
+    <div class="card-header pb-0 border-bottom-0">
+      <div class="d-flex align-items-center mb-3">
+        <h5 class="mb-0 me-auto" id="transactionTabTitle">Detalle de transacción</h5>
+        <button type="button" class="btn-close" id="closeTransactionTab" aria-label="Cerrar pestaña"></button>
+      </div>
+      <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="transactionTabButton" data-bs-toggle="tab" data-bs-target="#transactionTabPane" type="button" role="tab">
+            Información
+          </button>
+        </li>
+      </ul>
+    </div>
+    <div class="card-body border-top tab-content" id="transactionTabContent">
+      <div class="tab-pane fade show active" id="transactionTabPane" role="tabpanel" aria-labelledby="transactionTabButton">
+        <p class="text-muted mb-0" id="transactionTabBody">Selecciona un hash para ver su detalle.</p>
+      </div>
+    </div>
+  </div>
+
   <script>
     async function initCandidates(){
       try{
@@ -157,7 +178,12 @@
         for(const r of records){
           const tr = document.createElement('tr');
           const txTd = document.createElement('td');
-          txTd.innerHTML = `<code>${r.txid.substring(0,8)}...${r.txid.slice(-8)}</code>`;
+          const txLink = document.createElement('a');
+          txLink.href = '#';
+          txLink.className = 'hash-link text-decoration-none';
+          txLink.innerHTML = `<code>${r.txid.substring(0,8)}...${r.txid.slice(-8)}</code>`;
+          txLink.dataset.transaction = JSON.stringify(r);
+          txTd.appendChild(txLink);
           const typeTd = document.createElement('td');
           typeTd.textContent = 'VoteTx';
           const voteTd = document.createElement('td');
@@ -180,6 +206,78 @@
 
     document.addEventListener('DOMContentLoaded', function(){
       loadBlockchainRecords();
+    });
+  </script>
+
+  <script>
+    function formatTransactionValue(value){
+      if(value == null) return '<span class="text-muted">N/D</span>';
+      if(typeof value === 'object'){
+        return `<pre class="bg-light rounded p-2 mb-0">${JSON.stringify(value, null, 2)}</pre>`;
+      }
+      return String(value);
+    }
+
+    function renderTransactionDetails(data={}, sourceEl=null){
+      const wrapper = document.getElementById('transactionTabWrapper');
+      const body = document.getElementById('transactionTabBody');
+      const title = document.getElementById('transactionTabTitle');
+      if(!wrapper || !body) return;
+      wrapper.classList.remove('d-none');
+      const entries = Object.entries(data || {});
+      if(entries.length){
+        body.innerHTML = entries.map(([key,val])=>`
+          <div class="py-2 border-bottom">
+            <div class="small text-uppercase text-muted fw-semibold">${key}</div>
+            <div class="text-break">${formatTransactionValue(val)}</div>
+          </div>`).join('');
+      }else{
+        body.innerHTML = '<p class="text-muted mb-0">Sin datos de transacción.</p>';
+      }
+      if(title){
+        const hash = data.txid || data.hash || sourceEl?.textContent?.trim();
+        title.textContent = hash ? `Transacción ${hash}` : 'Detalle de transacción';
+      }
+      if(typeof wrapper.scrollIntoView === 'function'){
+        wrapper.scrollIntoView({behavior:'smooth', block:'start'});
+      }
+      const tabBtn = document.getElementById('transactionTabButton');
+      if(window.bootstrap && tabBtn){
+        window.bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+      }
+    }
+
+    function hideTransactionTab(){
+      const wrapper = document.getElementById('transactionTabWrapper');
+      if(wrapper){
+        wrapper.classList.add('d-none');
+      }
+    }
+
+    document.addEventListener('click', function(ev){
+      const hashEl = ev.target.closest('.hash-link');
+      if(hashEl){
+        ev.preventDefault();
+        let data = null;
+        if(hashEl.dataset.transaction){
+          try{
+            data = JSON.parse(hashEl.dataset.transaction);
+          }catch(err){
+            console.warn('Transacción inválida', err);
+          }
+        }
+        if(!data){
+          data = { hash: hashEl.textContent?.trim() };
+        }
+        renderTransactionDetails(data, hashEl);
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', function(){
+      const closeTabBtn = document.getElementById('closeTransactionTab');
+      if(closeTabBtn){
+        closeTabBtn.addEventListener('click', hideTransactionTab);
+      }
     });
   </script>
 </div>
