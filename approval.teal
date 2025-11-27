@@ -1,2 +1,169 @@
-﻿#pragma version 2
-int 1
+#pragma version 5
+
+// Handle creation
+txn ApplicationID
+int 0
+==
+bnz handle_creation
+
+// Handle Update
+txn OnCompletion
+int UpdateApplication
+==
+bnz handle_update
+
+// Handle Delete
+txn OnCompletion
+int DeleteApplication
+==
+bnz handle_delete
+
+// Handle OptIn
+txn OnCompletion
+int OptIn
+==
+bnz handle_optin
+
+// Handle CloseOut
+txn OnCompletion
+int CloseOut
+==
+bnz handle_closeout
+
+// Handle NoOp (Voting)
+txn OnCompletion
+int NoOp
+==
+bnz handle_noop
+
+err
+
+handle_creation:
+    // Initialize Global State
+    // Arg[0]: Registration Begin (Unix Timestamp)
+    // Arg[1]: Registration End (Unix Timestamp)
+    // Arg[2]: Voting Begin (Unix Timestamp)
+    // Arg[3]: Voting End (Unix Timestamp)
+    
+    // Store Creator
+    byte "Creator"
+    txn Sender
+    app_global_put
+
+    // Store Timestamps (Defaults to 0 if args not provided, for safety check args count in prod)
+    byte "RegBegin"
+    txna ApplicationArgs 0
+    btoi
+    app_global_put
+
+    byte "RegEnd"
+    txna ApplicationArgs 1
+    btoi
+    app_global_put
+
+    byte "VoteBegin"
+    txna ApplicationArgs 2
+    btoi
+    app_global_put
+
+    byte "VoteEnd"
+    txna ApplicationArgs 3
+    btoi
+    app_global_put
+
+    int 1
+    return
+
+handle_optin:
+    // Check if within registration period
+    global LatestTimestamp
+    byte "RegBegin"
+    app_global_get
+    >=
+    global LatestTimestamp
+    byte "RegEnd"
+    app_global_get
+    <=
+    &&
+    assert
+
+    // Initialize Local State
+    // Voted: 0 (False)
+    txn Sender
+    byte "Voted"
+    int 0
+    app_local_put
+
+    int 1
+    return
+
+handle_closeout:
+    // Allow users to close out (clears their local state, effectively removing their vote record from the contract state)
+    int 1
+    return
+
+handle_update:
+    // Only Creator can update
+    txn Sender
+    byte "Creator"
+    app_global_get
+    ==
+    return
+
+handle_delete:
+    // Only Creator can delete
+    txn Sender
+    byte "Creator"
+    app_global_get
+    ==
+    return
+
+handle_noop:
+    // Check if this is a vote transaction
+    // Expect Arg[0] = "vote"
+    txna ApplicationArgs 0
+    byte "vote"
+    ==
+    bnz handle_vote
+
+    err
+
+handle_vote:
+    // Check if within voting period
+    global LatestTimestamp
+    byte "VoteBegin"
+    app_global_get
+    >=
+    global LatestTimestamp
+    byte "VoteEnd"
+    app_global_get
+    <=
+    &&
+    assert
+
+    // Check if sender has opted in (implicitly checked by app_local_get returning 0 if not opted in, but we want to ensure they are opted in)
+    // Actually, if they are not opted in, the transaction fails with "unavailable" usually, or we can check logic.
+    // We check if they have already voted.
+    txn Sender
+    byte "Voted"
+    app_local_get
+    int 0
+    ==
+    assert
+
+    // Record Vote
+    // Arg[1]: Candidate ID (int)
+    txn Sender
+    byte "CandidateID"
+    txna ApplicationArgs 1
+    btoi
+    app_local_put
+
+    // Mark as Voted
+    txn Sender
+    byte "Voted"
+    int 1
+    app_local_put
+
+    int 1
+    return

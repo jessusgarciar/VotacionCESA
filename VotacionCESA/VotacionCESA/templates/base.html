@@ -20,6 +20,19 @@
     .candidate-card img { height: 260px; object-fit: cover; }
     .vote-btn { background: #0b1226; color: #fff; }
     .badge-blockchain { background: rgba(255,255,255,0.12); color: #fff; border-radius: .5rem; padding:.35rem .6rem; }
+    .proposal-number {
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      min-height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      line-height: 1;
+      flex: 0 0 36px;
+    }
   </style>
 </head>
 <body class="bg-light">
@@ -29,7 +42,7 @@
     <div class="container d-flex align-items-center justify-content-between">
       <div class="d-flex align-items-center gap-3">
         <div class="d-flex align-items-center">
-          <img id="navLogo" src="{% static 'logo.png' %}" alt="Logo" width="36" height="36" class="me-2" style="object-fit:contain;" />
+          <img id="navLogo" src="{% static 'logo.png' %}" alt="Logo" width="36" height="36" class="me-2" style="object-fit:contain;" href="/" />
           <script>
             (function(){
               try{
@@ -49,7 +62,7 @@
           </script>
         </div>
         <div>
-          <div class="brand-title">Sistema de Votación CESA</div>
+          <div class="brand-title" href="/">Sistema de Votación CESA</div>
           <small class="d-block" style="opacity:.9">Powered by Algorand Blockchain</small>
         </div>
       </div>
@@ -215,7 +228,7 @@
         proposals.forEach((p, idx) => {
         const col = document.createElement('div');
         col.className = 'col-md-6';
-        col.innerHTML = `<div class="card p-3"><div class="d-flex align-items-start gap-3"><div class="rounded-circle" style="background:${proposalColor};color:#fff;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%">${idx+1}</div><div class="small">${p}</div></div></div>`;
+        col.innerHTML = `<div class="card p-3"><div class="d-flex align-items-start gap-3"><div class="proposal-number" style="background:${proposalColor};color:#fff;">${idx+1}</div><div class="small">${p}</div></div></div>`;
         proposalsEl.appendChild(col);
       });
 

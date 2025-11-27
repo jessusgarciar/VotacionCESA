@@ -135,12 +135,89 @@
       }
     }
 
+    // sanitize transaction data to avoid exposing for whom the vote was cast
+    function sanitizeTransactionValue(val){
+      const blacklist = new Set([
+        'candidate','candidate_id','candidate_name','voted_for','vote','voter_choice',
+        'choice','selected','ballot','list','list_name','selection','voted',
+        // fields where the vote may be embedded
+        'note','note_text','note_base64','app_args','application_args','application-args','app-args','args'
+      ]);
+
+      function tryParseMaybeEncodedString(s){
+        if(typeof s !== 'string') return null;
+        // try plain JSON
+        try{ return JSON.parse(s); }catch(e){}
+        // try base64 -> JSON (browser: atob)
+        try{
+          if(typeof atob === 'function'){
+            const decoded = atob(s);
+            try{ return JSON.parse(decoded); }catch(e){}
+          }
+        }catch(e){}
+        return null;
+      }
+
+      function containsBlacklistedString(s){
+        if(typeof s !== 'string') return false;
+        const low = s.toLowerCase();
+        for(const k of blacklist){ if(low.includes(k)) return true; }
+        return false;
+      }
+
+      function sanitize(obj){
+        if(obj == null) return obj;
+        if(Array.isArray(obj)) return obj.map(sanitize);
+        if(typeof obj === 'object'){
+          const out = {};
+          for(const [k,v] of Object.entries(obj)){
+            try{
+              const key = String(k).toLowerCase();
+              if(blacklist.has(key)) continue; // drop sensitive keys
+
+              // if value is a string that encodes JSON or base64 JSON, parse & sanitize it
+              const maybe = tryParseMaybeEncodedString(v);
+              if(maybe !== null){
+                const clean = sanitize(maybe);
+                // if parsed JSON had no safe keys, skip
+                if(typeof clean === 'object' && Object.keys(clean).length === 0) continue;
+                out[k] = clean;
+                continue;
+              }
+
+              // redact primitives that include blacklisted keywords
+              if(typeof v === 'string' && containsBlacklistedString(v)){
+                out[k] = '[REDACTED]';
+                continue;
+              }
+
+              out[k] = sanitize(v);
+            }catch(e){ /* ignore malformed entries */ }
+          }
+          return out;
+        }
+
+        // primitive string: try parse then redact if needed
+        if(typeof obj === 'string'){
+          const maybe = tryParseMaybeEncodedString(obj);
+          if(maybe !== null) return sanitize(maybe);
+          if(containsBlacklistedString(obj)) return '[REDACTED]';
+        }
+
+        return obj;
+      }
+
+      return sanitize(val);
+    }
+
     function formatTransactionValue(value){
       if(value == null) return '<span class="text-muted">N/D</span>';
-      if(typeof value === 'object'){
-        return `<pre class="bg-light rounded p-2 mb-0">${JSON.stringify(value, null, 2)}</pre>`;
+      // sanitize objects/arrays before rendering
+      const sanitized = sanitizeTransactionValue(value);
+      if(typeof sanitized === 'object'){
+        return `<pre class="bg-light rounded p-2 mb-0">${JSON.stringify(sanitized, null, 2)}</pre>`;
       }
-      return String(value);
+      return String(sanitized);
     }
 
     function renderTransactionDetails(data={}, sourceEl=null){
@@ -149,7 +226,14 @@
       const title = document.getElementById('transactionTabTitle');
       if(!wrapper || !body) return;
       wrapper.classList.remove('d-none');
-      const entries = Object.entries(data || {});
+
+      // create a sanitized copy removing any keys that could reveal the voted candidate
+      const sanitized = sanitizeTransactionValue(data || {});
+
+      // remove the explicit `candidate` key (case-insensitive) to avoid exposing selection
+      const entries = Object.entries(sanitized || {}).filter(([k]) => {
+        try{ return String(k).toLowerCase() !== 'candidate'; }catch(e){ return true; }
+      });
       if(entries.length){
         body.innerHTML = entries.map(([key,val])=>`
           <div class="py-2 border-bottom">

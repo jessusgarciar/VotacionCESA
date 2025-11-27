@@ -1,2 +1,3 @@
-﻿#pragma version 2
+#pragma version 5
 int 1
+return

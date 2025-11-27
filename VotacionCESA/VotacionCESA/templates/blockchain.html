@@ -182,12 +182,18 @@
           txLink.href = '#';
           txLink.className = 'hash-link text-decoration-none';
           txLink.innerHTML = `<code>${r.txid.substring(0,8)}...${r.txid.slice(-8)}</code>`;
-          txLink.dataset.transaction = JSON.stringify(r);
+          // attach a safe copy of the record that does NOT include the candidate field
+          try{
+            const safeRecord = Object.assign({}, r);
+            try{ delete safeRecord.candidate; }catch(e){}
+            txLink.dataset.transaction = JSON.stringify(safeRecord);
+          }catch(e){ txLink.dataset.transaction = JSON.stringify(r); }
           txTd.appendChild(txLink);
           const typeTd = document.createElement('td');
           typeTd.textContent = 'VoteTx';
           const voteTd = document.createElement('td');
-          voteTd.textContent = r.election || (r.candidate || 'N/A');
+          // show only the election name here; do not display candidate
+          voteTd.textContent = r.election || 'N/A';
           const timeTd = document.createElement('td');
           timeTd.textContent = new Date(r.timestamp).toLocaleString();
           const statusTd = document.createElement('td');
@@ -224,7 +230,10 @@
       const title = document.getElementById('transactionTabTitle');
       if(!wrapper || !body) return;
       wrapper.classList.remove('d-none');
-      const entries = Object.entries(data || {});
+      // filter out any explicit 'candidate' key (case-insensitive)
+      const entries = Object.entries(data || {}).filter(([k]) => {
+        try{ return String(k).toLowerCase() !== 'candidate'; }catch(e){ return true; }
+      });
       if(entries.length){
         body.innerHTML = entries.map(([key,val])=>`
           <div class="py-2 border-bottom">
