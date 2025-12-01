@@ -1,5 +1,7 @@
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponse
 import logging
+import io
+from datetime import datetime
 
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -22,6 +24,14 @@ from django.utils.text import slugify
 import os
 from django.forms import inlineformset_factory
 from .models import CandidateMember
+
+# PDF generation imports
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch, cm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 
 @require_GET
@@ -346,3 +356,300 @@ def create_candidate_view(request):
         formset = MemberFormset()
 
     return render(request, 'manage/create_candidate.html', {'form': form, 'formset': formset})
+
+
+@staff_required
+def generate_election_pdf(request, election_id=None):
+    """
+    Genera un PDF con el reporte completo del proceso electoral.
+    Incluye: información de la elección, candidatos, resultados, estadísticas y registros blockchain.
+    """
+    from django.utils import timezone
+    
+    # Obtener la elección
+    if election_id:
+        election = get_object_or_404(Election, pk=election_id)
+    else:
+        # Usar la elección activa o la más reciente
+        now = timezone.now()
+        election = Election.objects.filter(start_date__lte=now, end_date__gte=now).first()
+        if not election:
+            election = Election.objects.order_by('-end_date').first()
+    
+    if not election:
+        return HttpResponse('No hay elecciones disponibles.', status=404)
+    
+    # Crear el buffer para el PDF
+    buffer = io.BytesIO()
+    
+    # Configurar el documento
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=72,
+        leftMargin=72,
+        topMargin=72,
+        bottomMargin=72
+    )
+    
+    # Estilos
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1a365d')
+    )
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=16,
+        spaceAfter=12,
+        spaceBefore=20,
+        textColor=colors.HexColor('#2c5282')
+    )
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=11,
+        spaceAfter=8
+    )
+    header_style = ParagraphStyle(
+        'CustomHeader',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.gray,
+        alignment=TA_RIGHT
+    )
+    
+    # Elementos del documento
+    elements = []
+    
+    # Encabezado con fecha de generación
+    now = timezone.now()
+    elements.append(Paragraph(f"Generado: {now.strftime('%d/%m/%Y')}", header_style))
+    elements.append(Spacer(1, 20))
+    
+    # Título principal
+    elements.append(Paragraph("REPORTE DEL PROCESO ELECTORAL", title_style))
+    elements.append(Paragraph(f"<b>{election.name}</b>", ParagraphStyle(
+        'ElectionName',
+        parent=styles['Heading2'],
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#4a5568')
+    )))
+    elements.append(Spacer(1, 30))
+    
+    # === INFORMACIÓN DE LA ELECCIÓN ===
+    elements.append(Paragraph("INFORMACIÓN DE LA ELECCIÓN", subtitle_style))
+    
+    election_info = [
+        ['Campo', 'Valor'],
+        ['Nombre', election.name],
+        ['Fecha de Inicio', election.start_date.strftime('%d/%m/%Y %H:%M')],
+        ['Fecha de Fin', election.end_date.strftime('%d/%m/%Y %H:%M')],
+        ['Estado', 'Activa' if election.is_active() else ('Finalizada' if election.end_date < now else 'Pendiente')],
+        ['Creada por', str(election.created_by) if election.created_by else 'N/A'],
+    ]
+    
+    info_table = Table(election_info, colWidths=[150, 300])
+    info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c5282')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f7fafc')),
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+        ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e2e8f0')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 1), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 25))
+    
+    # === ESTADÍSTICAS DE PARTICIPACIÓN ===
+    elements.append(Paragraph("ESTADÍSTICAS DE PARTICIPACIÓN", subtitle_style))
+    
+    eligible_voters = Voter.objects.filter(is_eligible=True).count()
+    total_votes = OnChainRecord.objects.filter(election=election).count() or Vote.objects.filter(election=election).count()
+    participation = round((total_votes / eligible_voters) * 100, 2) if eligible_voters > 0 else 0
+    voters_who_voted = Voter.objects.filter(has_voted=True).count()
+    
+    stats_data = [
+        ['Métrica', 'Valor'],
+        ['Votantes Elegibles', str(eligible_voters)],
+        ['Total de Votos Registrados', str(total_votes)],
+        ['Votantes que han Votado', str(voters_who_voted)],
+        ['Participación', f'{participation}%'],
+    ]
+    
+    stats_table = Table(stats_data, colWidths=[250, 200])
+    stats_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#38a169')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (1, 1), (1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0fff4')),
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+        ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#c6f6d5')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 1), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+    ]))
+    elements.append(stats_table)
+    elements.append(Spacer(1, 25))
+    
+    # === RESULTADOS POR CANDIDATO ===
+    elements.append(Paragraph("RESULTADOS POR CANDIDATO/PLANILLA", subtitle_style))
+    
+    candidates = Candidate.objects.filter(election=election).order_by('-votes_count')
+    
+    # Estilo para las celdas con texto largo
+    cell_style = ParagraphStyle(
+        'CellStyle',
+        parent=styles['Normal'],
+        fontSize=9,
+        leading=11,
+    )
+    
+    if candidates.exists():
+        # Usar Paragraph para permitir saltos de línea automáticos
+        results_data = [[
+            Paragraph('<b>#</b>', cell_style),
+            Paragraph('<b>Planilla/Candidato</b>', cell_style),
+            Paragraph('<b>Nombre</b>', cell_style),
+            Paragraph('<b>Votos</b>', cell_style),
+            Paragraph('<b>% del Total</b>', cell_style)
+        ]]
+        
+        for idx, candidate in enumerate(candidates, 1):
+            # Obtener conteo de votos (preferir blockchain)
+            vote_count = OnChainRecord.objects.filter(candidate=candidate).count() or candidate.votes_count
+            percentage = round((vote_count / total_votes) * 100, 2) if total_votes > 0 else 0
+            
+            results_data.append([
+                Paragraph(str(idx), cell_style),
+                Paragraph(candidate.list_name or 'N/A', cell_style),
+                Paragraph(candidate.name, cell_style),
+                Paragraph(str(vote_count), cell_style),
+                Paragraph(f'{percentage}%', cell_style)
+            ])
+        
+        results_table = Table(results_data, colWidths=[30, 150, 180, 50, 60])
+        results_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#805ad5')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('ALIGN', (0, 1), (0, -1), 'CENTER'),
+            ('ALIGN', (3, 1), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#faf5ff')),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e9d8fd')),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 1), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            # Resaltar el ganador (primera fila de datos)
+            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#d6bcfa')),
+        ]))
+        elements.append(results_table)
+    else:
+        elements.append(Paragraph("No hay candidatos registrados para esta elección.", normal_style))
+    
+    elements.append(Spacer(1, 25))
+    
+    # === REGISTROS EN BLOCKCHAIN ===
+    elements.append(Paragraph("REGISTROS EN BLOCKCHAIN (Últimos 20)", subtitle_style))
+    
+    onchain_records = OnChainRecord.objects.filter(election=election).order_by('-timestamp')[:20]
+    
+    # Estilo para celdas de blockchain
+    blockchain_cell_style = ParagraphStyle(
+        'BlockchainCellStyle',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10,
+    )
+    
+    if onchain_records.exists():
+        blockchain_data = [[
+            Paragraph('<b>TxID (parcial)</b>', blockchain_cell_style),
+            Paragraph('<b>Planilla</b>', blockchain_cell_style),
+            Paragraph('<b>Fecha/Hora</b>', blockchain_cell_style)
+        ]]
+        
+        for record in onchain_records:
+            # Mostrar solo los primeros 20 caracteres del txid para el PDF
+            txid_short = record.txid[:20] + '...' if len(record.txid) > 20 else record.txid
+            # Mostrar solo el nombre de la planilla (name), no el eslogan (list_name)
+            planilla_name = record.candidate.name if record.candidate else 'N/A'
+            blockchain_data.append([
+                Paragraph(txid_short, blockchain_cell_style),
+                Paragraph(planilla_name, blockchain_cell_style),
+                Paragraph(record.timestamp.strftime('%d/%m/%Y %H:%M:%S'), blockchain_cell_style)
+            ])
+        
+        blockchain_table = Table(blockchain_data, colWidths=[150, 170, 130])
+        blockchain_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2d3748')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#edf2f7')),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e0')),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 1), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(blockchain_table)
+    else:
+        elements.append(Paragraph("No hay registros en blockchain para esta elección.", normal_style))
+    
+    elements.append(Spacer(1, 30))
+    
+    # === PIE DE PÁGINA / FIRMA ===
+    elements.append(Paragraph("_" * 60, ParagraphStyle('Line', alignment=TA_CENTER)))
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph(
+        "Este documento fue generado automáticamente por el Sistema de Votación CESA.",
+        ParagraphStyle('Footer', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER, textColor=colors.gray)
+    ))
+    elements.append(Paragraph(
+        f"Fecha de generación: {now.strftime('%d de %B de %Y')}",
+        ParagraphStyle('FooterDate', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER, textColor=colors.gray)
+    ))
+    
+    # Construir el PDF
+    doc.build(elements)
+    
+    # Preparar respuesta
+    buffer.seek(0)
+    filename = f"reporte_electoral_{election.id}_{now.strftime('%Y%m%d_%H%M%S')}.pdf"
+    
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response

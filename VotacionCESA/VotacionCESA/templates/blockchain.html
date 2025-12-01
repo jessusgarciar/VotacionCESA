@@ -4,6 +4,11 @@
 <div class="mb-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">Explorador de Blockchain</h2>
+    {% if user.is_staff %}
+    <a href="{% url 'votaciones:election_pdf' %}" class="btn btn-primary" target="_blank">
+      <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
+    </a>
+    {% endif %}
   </div>
 
   <div class="row g-3 mb-4">

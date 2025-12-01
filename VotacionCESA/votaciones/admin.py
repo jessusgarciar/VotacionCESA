@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import Candidate, Voter, Vote, CandidateMember, Election
-from django.urls import path
+from django.urls import path, reverse
 from django.shortcuts import render, redirect
 from django import forms
 from django.contrib import messages
@@ -26,8 +26,18 @@ CandidateAdmin.inlines = [CandidateMemberInline]
 
 @admin.register(Election)
 class ElectionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'start_date', 'end_date', 'created_by')
+    list_display = ('name', 'start_date', 'end_date', 'created_by', 'download_report')
     search_fields = ('name',)
+    
+    def download_report(self, obj):
+        """Muestra un botón para descargar el reporte PDF de la elección."""
+        url = reverse('votaciones:election_pdf_by_id', args=[obj.id])
+        return format_html(
+            '<a class="button" href="{}" target="_blank" style="background-color: #417690; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px;">📄 PDF</a>',
+            url
+        )
+    download_report.short_description = 'Reporte'
+    download_report.allow_tags = True
 
 
 @admin.register(Voter)
