@@ -41,30 +41,30 @@
   <header class="topbar py-3">
     <div class="container d-flex align-items-center justify-content-between">
       <div class="d-flex align-items-center gap-3">
-        <div class="d-flex align-items-center">
-          <img id="navLogo" src="{% static 'logo.png' %}" alt="Logo" width="36" height="36" class="me-2" style="object-fit:contain;" href="/" />
-          <script>
-            (function(){
-              try{
-                var img = document.getElementById('navLogo');
-                if(!img) return;
-                img.addEventListener('error', function(){
-                  try{
-                    // try loading a bundled SVG fallback
-                    this.src = '{% static "logo.svg" %}';
-                  }catch(e){
-                    // last-resort: hide image
-                    this.style.display = 'none';
-                  }
-                });
-              }catch(e){/* silent */}
-            })();
-          </script>
-        </div>
-        <div>
-          <div class="brand-title" href="/">Sistema de Votación CESA</div>
-          <small class="d-block" style="opacity:.9">Powered by Algorand Blockchain</small>
-        </div>
+        <a href="/" class="d-flex align-items-center text-white text-decoration-none">
+          <img id="navLogo" src="{% static 'logo.png' %}" alt="Logo" width="36" height="36" class="me-2" style="object-fit:contain;" />
+          <div>
+            <div class="brand-title">Sistema de Votación CESA</div>
+            <small class="d-block" style="opacity:.9">Powered by Algorand Blockchain</small>
+          </div>
+        </a>
+        <script>
+          (function(){
+            try{
+              var img = document.getElementById('navLogo');
+              if(!img) return;
+              img.addEventListener('error', function(){
+                try{
+                  // try loading a bundled SVG fallback
+                  this.src = '{% static "logo.svg" %}';
+                }catch(e){
+                  // last-resort: hide image
+                  this.style.display = 'none';
+                }
+              });
+            }catch(e){/* silent */}
+          })();
+        </script>
       </div>
 
   <div class="d-flex align-items-center gap-3">

@@ -153,3 +153,20 @@ class OnChainRecord(models.Model):
 
     def __str__(self):
         return f"OnChainRecord {self.txid} -> {self.candidate}"
+
+
+class PDFReport(models.Model):
+    """Historial de reportes PDF generados por elección."""
+    election = models.ForeignKey(Election, on_delete=models.CASCADE, related_name='pdf_reports')
+    filename = models.CharField(max_length=255)
+    pdf_file = models.FileField(upload_to='reports/')
+    total_votes = models.PositiveIntegerField(default=0)
+    participation = models.FloatField(default=0.0)
+    generated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    generated_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-generated_at']
+    
+    def __str__(self):
+        return f"Reporte {self.filename} - {self.election.name}"

@@ -7,7 +7,7 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
 from django.shortcuts import get_object_or_404
-from .models import Candidate, Voter, Vote, CandidateMember, Election, OnChainRecord
+from .models import Candidate, Voter, Vote, CandidateMember, Election, OnChainRecord, PDFReport
 from . import algorand_reader
 from django.db.models import Q
 from django.contrib.auth import get_user_model
@@ -649,7 +649,64 @@ def generate_election_pdf(request, election_id=None):
     buffer.seek(0)
     filename = f"reporte_electoral_{election.id}_{now.strftime('%Y%m%d_%H%M%S')}.pdf"
     
+    # Guardar en historial
+    from django.core.files.base import ContentFile
+    from .models import PDFReport
+    
+    # Crear una copia del buffer para guardar
+    pdf_content = buffer.getvalue()
+    pdf_report = PDFReport(
+        election=election,
+        filename=filename,
+        total_votes=total_votes,
+        participation=participation,
+        generated_by=request.user if request.user.is_authenticated else None
+    )
+    pdf_report.pdf_file.save(filename, ContentFile(pdf_content), save=True)
+    
+    # Mostrar en navegador (inline) en lugar de descargar
+    buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    
+    return response
+
+
+@staff_required
+def pdf_history_view(request, election_id=None):
+    """
+    Muestra el historial de reportes PDF generados.
+    """
+    from django.utils import timezone
+    
+    elections = Election.objects.all().order_by('-end_date')
+    
+    if election_id:
+        election = get_object_or_404(Election, pk=election_id)
+        reports = PDFReport.objects.filter(election=election).order_by('-generated_at')
+    else:
+        election = None
+        reports = PDFReport.objects.all().order_by('-generated_at')
+    
+    context = {
+        'elections': elections,
+        'selected_election': election,
+        'reports': reports,
+    }
+    
+    return render(request, 'manage/pdf_history.html', context)
+
+
+@staff_required
+def view_pdf_report(request, report_id):
+    """
+    Visualiza un reporte PDF del historial.
+    """
+    report = get_object_or_404(PDFReport, pk=report_id)
+    
+    # Leer el archivo PDF guardado
+    pdf_file = report.pdf_file
+    response = HttpResponse(pdf_file.read(), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{report.filename}"'
     
     return response

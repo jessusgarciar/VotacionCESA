@@ -5,9 +5,14 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">Explorador de Blockchain</h2>
     {% if user.is_staff %}
-    <a href="{% url 'votaciones:election_pdf' %}" class="btn btn-primary" target="_blank">
-      <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
-    </a>
+    <div class="btn-group">
+      <a href="{% url 'votaciones:election_pdf' %}" class="btn btn-primary" target="_blank">
+        <i class="bi bi-file-earmark-pdf"></i> Generar PDF
+      </a>
+      <a href="{% url 'votaciones:pdf_history' %}" class="btn btn-outline-primary">
+        <i class="bi bi-clock-history"></i> Historial
+      </a>
+    </div>
     {% endif %}
   </div>
 

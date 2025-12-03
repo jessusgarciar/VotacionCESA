@@ -1,0 +1,260 @@
+# ============================================================================
+# DATOS SENSIBLES Y CONFIGURACIÓN
+# ============================================================================
+
+# Variables de entorno (contiene mnemonics, tokens, API keys)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Archivos de configuración con credenciales
+config.json
+secrets.json
+credentials.json
+
+# Mnemonics y claves privadas
+*.mnemonic
+*.key
+*.pem
+*.secret
+
+
+# ============================================================================
+# PYTHON
+# ============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+
+# ============================================================================
+# DJANGO
+# ============================================================================
+
+# Database
+*.sqlite3
+*.db
+db.sqlite3
+db.sqlite3-journal
+
+# Django migrations (opcional: algunos proyectos los comitean)
+# */migrations/*.py
+# !*/migrations/__init__.py
+
+# Media files (imágenes subidas por usuarios)
+media/
+*/media/
+
+# Static files (generados por collectstatic)
+staticfiles/
+static_root/
+/static/
+
+# Django logs
+*.log
+logs/
+*.pot
+
+# Local settings
+local_settings.py
+settings_local.py
+
+
+# ============================================================================
+# REPORTES Y ARCHIVOS GENERADOS
+# ============================================================================
+
+# PDFs generados por el sistema
+*.pdf
+media/reports/*.pdf
+media/candidates/*.pdf
+
+# Archivos CSV con datos sensibles de votantes
+voters.csv
+voters_*.csv
+*_voters.csv
+
+# Backups de base de datos
+*.backup
+*.bak
+*.sql
+*.dump
+
+
+# ============================================================================
+# IDE Y EDITORES
+# ============================================================================
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+
+# ============================================================================
+# SISTEMA OPERATIVO
+# ============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+Desktop.ini
+
+# Linux
+*~
+
+
+# ============================================================================
+# ALGORAND / BLOCKCHAIN
+# ============================================================================
+
+# Archivos de configuración del nodo Algorand
+node.log
+algod.net
+algod.token
+kmd.net
+kmd.token
+
+# Wallets locales
+*.wallet
+*.rootkey
+
+
+# ============================================================================
+# DOCKER
+# ============================================================================
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+
+# ============================================================================
+# OTROS
+# ============================================================================
+
+# Archivos temporales
+*.tmp
+*.temp
+*.cache
+.cache/
+
+# Archivos de respaldo
+*.orig
+
+# Archivos comprimidos (excepto releases)
+*.zip
+*.tar.gz
+*.rar
+
+# Node modules (si usas frontend con npm/yarn)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Pytest
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/

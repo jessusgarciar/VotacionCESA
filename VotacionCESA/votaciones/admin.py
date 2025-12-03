@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Candidate, Voter, Vote, CandidateMember, Election
+from .models import Candidate, Voter, Vote, CandidateMember, Election, PDFReport
 from django.urls import path, reverse
 from django.shortcuts import render, redirect
 from django import forms
@@ -26,11 +26,11 @@ CandidateAdmin.inlines = [CandidateMemberInline]
 
 @admin.register(Election)
 class ElectionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'start_date', 'end_date', 'created_by', 'download_report')
+    list_display = ('name', 'start_date', 'end_date', 'created_by', 'download_report', 'view_history')
     search_fields = ('name',)
     
     def download_report(self, obj):
-        """Muestra un botón para descargar el reporte PDF de la elección."""
+        """Muestra un botón para generar el reporte PDF de la elección."""
         url = reverse('votaciones:election_pdf_by_id', args=[obj.id])
         return format_html(
             '<a class="button" href="{}" target="_blank" style="background-color: #417690; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px;">📄 PDF</a>',
@@ -38,6 +38,35 @@ class ElectionAdmin(admin.ModelAdmin):
         )
     download_report.short_description = 'Reporte'
     download_report.allow_tags = True
+    
+    def view_history(self, obj):
+        """Muestra un enlace al historial de PDFs de la elección."""
+        url = reverse('votaciones:pdf_history_by_election', args=[obj.id])
+        count = obj.pdf_reports.count()
+        return format_html(
+            '<a href="{}" style="color: #417690;">📋 Historial ({})</a>',
+            url, count
+        )
+    view_history.short_description = 'Historial'
+    view_history.allow_tags = True
+
+
+@admin.register(PDFReport)
+class PDFReportAdmin(admin.ModelAdmin):
+    list_display = ('filename', 'election', 'total_votes', 'participation', 'generated_by', 'generated_at', 'view_pdf')
+    list_filter = ('election', 'generated_at')
+    search_fields = ('filename', 'election__name')
+    readonly_fields = ('filename', 'pdf_file', 'total_votes', 'participation', 'generated_by', 'generated_at')
+    
+    def view_pdf(self, obj):
+        """Muestra un botón para ver el PDF."""
+        url = reverse('votaciones:view_pdf_report', args=[obj.id])
+        return format_html(
+            '<a class="button" href="{}" target="_blank" style="background-color: #28a745; color: white; padding: 3px 8px; text-decoration: none; border-radius: 4px;">👁 Ver</a>',
+            url
+        )
+    view_pdf.short_description = 'Ver PDF'
+    view_pdf.allow_tags = True
 
 
 @admin.register(Voter)
