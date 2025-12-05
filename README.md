@@ -5,7 +5,6 @@ Sistema de votación electrónica segura basado en blockchain Algorand para el C
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![Django](https://img.shields.io/badge/Django-5.2+-green.svg)
 ![Algorand](https://img.shields.io/badge/Blockchain-Algorand-purple.svg)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ---
 
@@ -789,7 +788,7 @@ docker run -p 8000:8000 votacion-cesa
 ✅ **Blockchain Verification**: Votos inmutables en Algorand
 ✅ **Anonymity**: OnChainRecord no vincula votante con voto
 
-### Recomendaciones Adicionales
+### Recomendaciones
 
 🔐 **HTTPS Obligatorio**: Usar SSL/TLS en producción
 🔐 **Secret Key**: Generar clave secreta única y segura
